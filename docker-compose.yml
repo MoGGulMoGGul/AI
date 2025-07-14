@@ -1,0 +1,26 @@
+version: "3.8"
+
+services:
+  postgres:
+    image: ankane/pgvector:latest   # pgvector가 포함된 PostgreSQL 이미지
+    container_name: momo_postgres
+    restart: always
+    ports:
+      - "5432:5432"
+    environment:
+      POSTGRES_USER: user
+      POSTGRES_PASSWORD: p1234
+      POSTGRES_DB: momo
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+      - ./init.sql:/docker-entrypoint-initdb.d/init.sql  # 확장 자동 설치
+
+  redis:
+    image: redis:7
+    container_name: momo_redis
+    restart: always
+    ports:
+      - "6379:6379"
+
+volumes:
+  pgdata:
