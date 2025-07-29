@@ -1,0 +1,14 @@
+# app/db/models.py
+
+from sqlalchemy import Column, Integer, Text
+from sqlalchemy.orm import declarative_base
+from pgvector.sqlalchemy import Vector
+
+Base = declarative_base()
+
+class Document(Base):
+    __tablename__ = "documents"
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    content = Column(Text, nullable=False)
+    embedding = Column(Vector(384), nullable=False)  # 모델 차원에 맞게 설정
