@@ -38,6 +38,9 @@
     celery -A app.worker.celery.celery_app worker --loglevel=info --pool=solo
 ```
 
-
+- celery 실행 명령어2(터미널 3)
+```
+    celery -A app.image_worker.celery.celery_app worker --loglevel=info --pool=solo
+```
 ### Swagger 주소
 - http://127.0.0.1:8000/docs#/
