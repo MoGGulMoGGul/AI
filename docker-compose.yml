@@ -1,8 +1,41 @@
 version: "3.8"
 
 services:
+  fastapi:
+    build:
+      context: .        # 현재 디렉토리 기준
+      dockerfile: Dockerfile
+    container_name: momo_fastapi
+    restart: always
+    ports:
+      - "8000:8000"
+    depends_on:
+      - redis
+      - postgres
+    environment:
+      - DB_URL=postgresql+psycopg2://user:p1234@postgres:5432/momo
+      - OPENAI_API_KEY=${OPENAI_API_KEY}  # .env에 저장된 키를 자동 주입
+    volumes:
+      - .:/app
+
+  celery:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: momo_celery
+    restart: always
+    depends_on:
+      - redis
+      - postgres
+    command: celery -A app.celery_worker.celery_app worker --loglevel=info
+    environment:
+      - DB_URL=postgresql+psycopg2://user:p1234@postgres:5432/momo
+      - OPENAI_API_KEY=${OPENAI_API_KEY}
+    volumes:
+      - .:/app
+
   postgres:
-    image: ankane/pgvector:latest   # pgvector가 포함된 PostgreSQL 이미지
+    image: ankane/pgvector:latest
     container_name: momo_postgres
     restart: always
     ports:
@@ -13,7 +46,7 @@ services:
       POSTGRES_DB: momo
     volumes:
       - pgdata:/var/lib/postgresql/data
-      - ./init.sql:/docker-entrypoint-initdb.d/init.sql  # 확장 자동 설치
+      - ./init.sql:/docker-entrypoint-initdb.d/init.sql
 
   redis:
     image: redis:7
