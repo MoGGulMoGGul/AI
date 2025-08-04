@@ -11,6 +11,7 @@ from app.tasks import process_url_task
 from celery.result import AsyncResult
 from app.celery_worker import celery_app
 from app.summarizer import summarize_and_tag  # API 키 연결 시 사용
+from app.elasticsearch_client import search_by_tag  # 🔍 태그 검색 함수 불러오기
 
 app = FastAPI()
 app.include_router(qa_router)
@@ -72,6 +73,15 @@ def get_status(task_id: str):
         "status": result.status,
         "result": result.result if result.ready() else None,
     }
+
+@app.get("/search-tag")
+def search_tag(tag: str):
+    """
+    🔍 태그로 팁 검색 (Elasticsearch 사용)
+    예: /search-tag?tag=시간
+    """
+    results = search_by_tag(tag)
+    return [hit["_source"] for hit in results["hits"]["hits"]]
 
 
 
