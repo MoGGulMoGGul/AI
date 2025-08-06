@@ -7,11 +7,12 @@ from app.video_handler import get_combined_transcript
 from app.text_filter import clean_text
 from app.langchain_pipe import run_langchain_pipeline
 from app.qa_api import router as qa_router
-from app.tasks import process_url_task
+from app.summarizer import process_url_task
 from celery.result import AsyncResult
 from app.celery_worker import celery_app
 from app.summarizer import summarize_and_tag  # API 키 연결 시 사용
 from app.elasticsearch_client import search_by_tag  # 🔍 태그 검색 함수 불러오기
+import app.summarizer
 
 app = FastAPI()
 app.include_router(qa_router)

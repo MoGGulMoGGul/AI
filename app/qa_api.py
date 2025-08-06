@@ -4,7 +4,7 @@ from pydantic import BaseModel
 import os
 from langchain_community.vectorstores import PGVector
 from langchain_community.embeddings import OpenAIEmbeddings
-from langchain.chat_models import ChatOpenAI
+from langchain_community.chat_models import ChatOpenAI
 from langchain.chains.qa_with_sources import load_qa_with_sources_chain
 
 router = APIRouter()
@@ -31,7 +31,7 @@ def qa_endpoint(request: QARequest):
     # ✅ GPT 기반 Q&A 응답
     openai_key = os.getenv("OPENAI_API_KEY")
     if openai_key:
-        llm = ChatOpenAI(openai_api_key=openai_key, temperature=0)
+        llm = ChatOpenAI(openai_api_key=openai_key, model_name="gpt-3.5-turbo", temperature=0)
         chain = load_qa_with_sources_chain(llm, chain_type="stuff")
         chain_result = chain.invoke({"input_documents": docs, "question": request.query})
         result["answer"] = chain_result["answer"]
