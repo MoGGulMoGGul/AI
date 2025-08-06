@@ -7,6 +7,7 @@ from app.text_filter import clean_text
 from app.ai_utils import summarize_and_tag
 from app.langchain_pipe import run_langchain_pipeline
 import requests
+from app.image_handler import process_image_tip
 
 @celery_app.task(name="app.summarizer.process_url_task")
 def process_url_task(url: str):
@@ -15,15 +16,16 @@ def process_url_task(url: str):
         content_type = headers.get("Content-Type", "")
 
         if any(url.lower().endswith(ext) for ext in [".jpg", ".jpeg", ".png"]) or "image" in content_type:
-            # 이미지 처리
             local_filename = "temp_image.jpg"
             with requests.get(url, stream=True) as r:
                 r.raise_for_status()
                 with open(local_filename, "wb") as f:
                     for chunk in r.iter_content(chunk_size=8192):
                         f.write(chunk)
+
             result = process_image_tip(local_filename)
-            return f"[이미지] 제목: {result['title']} / 요약: {result['summary']} / 태그: {', '.join(result['tags'])}"
+            return f"[이미지] 제목: {result['summary_and_tags']['title']} / 요약: {result['summary_and_tags']['summary']} / 태그: {', '.join(result['summary_and_tags']['tags'])}"
+
 
         elif "youtube.com" in url or "youtu.be" in url:
             # 유튜브 처리
