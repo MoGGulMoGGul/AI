@@ -141,7 +141,7 @@ psql -U user -d momo
 
 # FastAPI 서버 실행
 ```
-uvicorn app.main:app --reload
+uvicorn app.main:app
 ```
 
 # Celery 워커 실행 (Windows 안정화 옵션 포함)

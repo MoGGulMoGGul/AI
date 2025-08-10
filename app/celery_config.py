@@ -14,4 +14,8 @@ celery_app = Celery(
 
 celery_app.autodiscover_tasks(["app"])
 
+celery_app.conf.update(
+    task_annotations = {'app.summarizer.process_url_task': {'rate_limit': '10/m'}},
+)
+
 import app.summarizer

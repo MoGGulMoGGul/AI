@@ -25,10 +25,10 @@ def summarize_and_tag(text: str):
         )
         result = response.choices[0].message.content.strip().split("\n")
 
-        title = result[0]
+        title = result[0].strip('[]')
         summary = result[1] if len(result) > 1 else "요약 없음"
         tags_line = result[2] if len(result) > 2 else ""
-        tags = [tag.strip() for tag in tags_line.split(",") if tag.strip()]
+        tags = [tag.strip().strip('[]') for tag in tags_line.split(",") if tag.strip()] 
 
         return {
             "title": title,
