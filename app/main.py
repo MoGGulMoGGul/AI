@@ -139,3 +139,8 @@ async def create_thumbnail(request: URLRequest):
 # 완전 초기화(데이터까지 삭제, 주의!):
 
 # docker compose down -v
+
+# git status
+# git add -A
+# git commit -m "메시지"
+# git push origin <브랜치명>   # 예: main
