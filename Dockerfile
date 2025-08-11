@@ -1,18 +1,31 @@
+# Dockerfile
 # ▶️ Python 3.11 slim 이미지 기반
 FROM python:3.11-slim
 
-# ▶️ 작업 디렉토리 설정
+# ▶️ 필수 시스템 패키지 (cv2/EasyOCR/Playwright/yt_dlp용)
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    libgl1 \
+    libglib2.0-0 \
+    libsm6 libxext6 libxrender1 \
+    ffmpeg \
+  && rm -rf /var/lib/apt/lists/*
+
+# ▶️ 작업 디렉토리
 WORKDIR /app
 
-# ▶️ 종속성 파일 복사 및 설치
+# ▶️ 파이썬 의존성
 COPY requirements.txt .
-RUN pip install --upgrade pip && pip install -r requirements.txt
+RUN pip install --upgrade pip \
+ && pip install --no-cache-dir -r requirements.txt
 
-# ▶️ 전체 소스 코드 복사
+# ▶️ Playwright 브라우저(Chromium) 설치
+RUN python -m playwright install --with-deps chromium
+
+# ▶️ 앱 소스
 COPY ./app ./app
 
-# ▶️ 포트 개방 (FastAPI용)
+# ▶️ 포트
 EXPOSE 8000
 
-# ▶️ 기본 실행 명령 (FastAPI 서버 실행용)
+# ▶️ 실행
 CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000"]
