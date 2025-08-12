@@ -98,6 +98,31 @@ def search_tag(tag: str):
     hits = search_by_tag(tag)
     return [hit["_source"] for hit in hits]
 
+# 요약 결과 조회 엔드포인트 (Spring Boot에서 호출)
+@app.get("/summary-result/{task_id}")
+def get_summary_result(task_id: str):
+    result = AsyncResult(task_id, app=celery_app)
+    
+    if not result.ready():
+        raise HTTPException(status_code=202, detail="요약 작업이 아직 완료되지 않았습니다. 잠시 후 다시 시도해주세요.")
+    
+    if result.successful():
+        task_output = result.result # 딕셔너리 형태
+        if isinstance(task_output, dict):
+            return {
+                "summary": task_output.get("summary", "요약 없음"),
+                "title": task_output.get("title", "제목 없음"),
+                "tags": task_output.get("tags", []),
+                "thumbnail_data": task_output.get("thumbnail_data"), 
+                "thumbnail_type": task_output.get("thumbnail_type") 
+            }
+        else:
+            raise HTTPException(status_code=500, detail=f"요약 결과 형식이 올바르지 않습니다: {task_output}")
+    else:
+        raise HTTPException(status_code=500, detail=f"요약 작업이 실패했습니다: {result.result}")
+
+
+# 썸네일 생성
 @app.post("/thumbnail")
 async def create_thumbnail(request: URLRequest):
     """
@@ -105,7 +130,6 @@ async def create_thumbnail(request: URLRequest):
     - 유튜브: 썸네일 URL로 리다이렉트
     - 이미지/웹페이지: PNG 바이트 반환
     """
-    # ✅ 동기 함수이므로 await 제거
     thumbnail_data, thumb_type = generate_thumbnail(request.url)
 
     if not thumbnail_data:
