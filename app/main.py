@@ -2,6 +2,8 @@
 import asyncio
 import sys
 
+from app.elasticsearch_client import search_by_tag, es
+
 print("="*50)
 print(f"스크립트 시작. 현재 플랫폼: {sys.platform}")
 print(f"초기 asyncio 정책: {asyncio.get_event_loop_policy().__class__.__name__}")
@@ -95,6 +97,10 @@ def get_status(task_id: str):
 @app.get("/search-tag")
 def search_tag(tag: str):
     """Elasticsearch 태그 검색"""
+    # es 클라이언트가 연결되지 않았으면 에러 메시지 반환
+    if not es:
+        raise HTTPException(status_code=503, detail="Elasticsearch service is not available.")
+    
     hits = search_by_tag(tag)
     return [hit["_source"] for hit in hits]
 

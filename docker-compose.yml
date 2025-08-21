@@ -1,5 +1,10 @@
-# docker-compose.yml
+# AI/docker-compose.yml
+
+# version을 명시하여 호환성을 높입니다.
+version: '3.8'
+
 services:
+  # FastAPI 애플리케이션 서버
   fastapi:
     build:
       context: .
@@ -8,23 +13,14 @@ services:
     restart: always
     ports:
       - "8000:8000"
-    depends_on:
-      - redis
-      - postgres
-      - elasticsearch
-    environment:
-      - DB_URL=postgresql+psycopg2://user:p1234@postgres:5432/momo
-      - PGVECTOR_CONNECTION_STRING=postgresql+psycopg2://user:p1234@postgres:5432/momo
-      - CELERY_BROKER_URL=redis://redis:6379/0
-      - CELERY_RESULT_BACKEND=redis://redis:6379/0
-      - ES_URL=http://elasticsearch:9200
-      - OPENAI_API_KEY=${OPENAI_API_KEY}
-      - OPENAI_PROJECT_ID=${OPENAI_PROJECT_ID}
-      - OPENAI_ORGANIZATION_ID=${OPENAI_ORGANIZATION_ID}
+    # 이제 depends_on이 필요 없습니다. 외부 AWS 서비스에 접속합니다.
+    # environment 변수는 .env 파일에서 주입되므로 여기서 제거합니다.
+    env_file:
+      - .env
     volumes:
       - .:/app
-    networks: [default]
 
+  # Celery 워커 서버
   celery:
     build:
       context: .
@@ -32,73 +28,10 @@ services:
     container_name: momo_celery
     restart: always
     command: celery -A app.celery_config.celery_app worker --loglevel=info
-    depends_on:
-      - redis
-      - postgres
-      - elasticsearch
-    environment:
-      - DB_URL=postgresql+psycopg2://user:p1234@postgres:5432/momo
-      - PGVECTOR_CONNECTION_STRING=postgresql+psycopg2://user:p1234@postgres:5432/momo
-      - CELERY_BROKER_URL=redis://redis:6379/0
-      - CELERY_RESULT_BACKEND=redis://redis:6379/0
-      - ES_URL=http://elasticsearch:9200
-      - OPENAI_API_KEY=${OPENAI_API_KEY}
-      - OPENAI_PROJECT_ID=${OPENAI_PROJECT_ID}
-      - OPENAI_ORGANIZATION_ID=${OPENAI_ORGANIZATION_ID}
+    # depends_on도 마찬가지로 필요 없습니다.
+    env_file:
+      - .env
     volumes:
       - .:/app
-    networks: [default]
 
-  postgres:
-    image: ankane/pgvector:latest
-    container_name: momo_postgres
-    restart: always
-    ports:
-      - "5432:5432"
-    environment:
-      POSTGRES_USER: user
-      POSTGRES_PASSWORD: p1234
-      POSTGRES_DB: momo
-    volumes:
-      - F:/docker-volumes/pgdata:/var/lib/postgresql/data
-      - ./init.sql:/docker-entrypoint-initdb.d/init.sql
-    networks: [default]
-
-  redis:
-    image: redis:7
-    container_name: momo_redis
-    restart: always
-    ports:
-      - "6379:6379"
-    volumes:
-      - F:/docker-volumes/redis:/data
-    networks: [default]
-
-  elasticsearch:
-    image: docker.elastic.co/elasticsearch/elasticsearch:8.12.0
-    container_name: momo_elasticsearch
-    environment:
-      - discovery.type=single-node
-      - xpack.security.enabled=false
-      - bootstrap.memory_lock=true
-      - ES_JAVA_OPTS=-Xms512m -Xmx512m
-    ulimits:
-      memlock:
-        soft: -1
-        hard: -1
-    ports:
-      - "9200:9200"
-    volumes:
-      - F:/docker-volumes/elasticsearch:/usr/share/elasticsearch/data
-    networks: [default]
-
-  kibana:
-    image: docker.elastic.co/kibana/kibana:8.12.0
-    container_name: momo_kibana
-    ports:
-      - "5601:5601"
-    environment:
-      - ELASTICSEARCH_HOSTS=http://elasticsearch:9200
-    depends_on:
-      - elasticsearch
-    networks: [default]
+# postgres, redis, elasticsearch, kibana 서비스는 모두 제거합니다.

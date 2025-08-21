@@ -1,4 +1,5 @@
-# app/langchain_pipe.py
+# AI/app/langchain_pipe.py (파일 전체를 아래 코드로 교체)
+
 import os
 from dotenv import load_dotenv
 from langchain.text_splitter import RecursiveCharacterTextSplitter
@@ -32,9 +33,16 @@ def run_langchain_pipeline(raw_text: str):
         summary = summary_and_tags["summary"]
         title = summary_and_tags["title"]
         tag_list = summary_and_tags["tags"]
-        index_tip_document(text=raw_text, summary=summary, tags=tag_list)
+        
+        # Elasticsearch 색인 시도 (실패해도 무시)
+        try:
+            index_tip_document(text=raw_text, summary=summary, tags=tag_list)
+        except Exception as e:
+            print(f"[Elasticsearch 저장 중 오류 발생, 그러나 계속 진행] {e}")
+
     except Exception as e:
-        print(f"[Elasticsearch 저장 중 오류] {e}")
+        print(f"[AI 요약/태그 생성 중 오류] {e}")
+
 
     return {
         "chunks": len(docs),
