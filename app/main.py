@@ -115,12 +115,12 @@ def get_summary_result(task_id: str):
     if result.successful():
         task_output = result.result # 딕셔너리 형태
         if isinstance(task_output, dict):
+            # thumbnail_data 대신 thumbnail_url을 반환하도록 수정
             return {
                 "summary": task_output.get("summary", "요약 없음"),
                 "title": task_output.get("title", "제목 없음"),
                 "tags": task_output.get("tags", []),
-                "thumbnail_data": task_output.get("thumbnail_data"), 
-                "thumbnail_type": task_output.get("thumbnail_type") 
+                "thumbnail_url": task_output.get("thumbnail_url")
             }
         else:
             raise HTTPException(status_code=500, detail=f"요약 결과 형식이 올바르지 않습니다: {task_output}")

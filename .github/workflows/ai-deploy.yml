@@ -1,12 +1,11 @@
-# .github/workflows/ai-deploy.yml (파일 전체를 아래 코드로 교체)
+# AI 프로젝트 저장소의 .github/workflows/ai-deploy.yml
 
 name: MogulMogul AI CI/CD
 
 on:
   push:
     branches: [ "main", "master" ]
-    paths:
-      - 'AI/**'
+    # paths 부분을 삭제했습니다. 이 저장소의 모든 push가 배포 대상입니다.
 
 jobs:
   deploy:
@@ -20,29 +19,25 @@ jobs:
         username: ${{ secrets.EC2_USERNAME }}
         key: ${{ secrets.EC2_SSH_KEY }}
         script: |
-          # 프로젝트 폴더로 이동 (없으면 생성)
           APP_DIR="/home/ubuntu/app/ai"
           mkdir -p $APP_DIR
           cd $APP_DIR
           
-          # GitHub에서 최신 코드 가져오기
+          # 이제 자신의 저장소만 clone/pull 하면 됩니다.
           if [ -z "$(ls -A $APP_DIR)" ]; then
             git clone https://github.com/${{ github.repository }}.git .
           else
             git pull origin main
           fi
 
-          # .env 파일 생성 (AWS 관련 Secrets 추가)
+          # .env 파일 생성 로직은 이전과 동일
           echo "OPENAI_API_KEY=${{ secrets.OPENAI_API_KEY }}" > .env
           echo "OPENAI_PROJECT_ID=${{ secrets.OPENAI_PROJECT_ID }}" >> .env
           echo "OPENAI_ORGANIZATION_ID=${{ secrets.OPENAI_ORGANIZATION_ID }}" >> .env
           echo "PGVECTOR_CONNECTION_STRING=postgresql+psycopg2://${{ secrets.RDS_USERNAME }}:${{ secrets.RDS_PASSWORD }}@${{ secrets.RDS_HOSTNAME }}:${{ secrets.RDS_PORT }}/${{ secrets.RDS_DB_NAME }}" >> .env
           echo "REDIS_URL=redis://${{ secrets.REDIS_HOST }}:${{ secrets.REDIS_PORT }}/0" >> .env
-          
-          # S3 접근을 위한 AWS 자격증명 추가
           echo "AWS_ACCESS_KEY_ID=${{ secrets.AWS_ACCESS_KEY_ID }}" >> .env
           echo "AWS_SECRET_ACCESS_KEY=${{ secrets.AWS_SECRET_ACCESS_KEY }}" >> .env
           echo "AWS_S3_BUCKET_NAME=${{ secrets.AWS_S3_BUCKET_NAME }}" >> .env
           
-          # Docker Compose로 실행
           docker-compose up -d --build
