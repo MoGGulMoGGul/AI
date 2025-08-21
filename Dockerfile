@@ -1,4 +1,5 @@
-# Dockerfile
+# AI/Dockerfile
+
 # ▶️ Python 3.11 slim 이미지 기반
 FROM python:3.11-slim
 
@@ -18,8 +19,9 @@ COPY requirements.txt .
 RUN pip install --upgrade pip \
  && pip install --no-cache-dir -r requirements.txt
 
-# ▶️ Playwright 브라우저(Chromium) 설치
-RUN python -m playwright install --with-deps chromium
+# ▶️ Playwright 브라우저(Chromium) 설치 (수정된 부분)
+# 문제가 되는 --with-deps 옵션을 제거합니다.
+RUN python -m playwright install chromium
 
 # ▶️ 앱 소스
 COPY ./app ./app
