@@ -22,20 +22,15 @@ print("="*50)
 from fastapi import FastAPI, UploadFile, File, HTTPException
 from pydantic import BaseModel
 from fastapi.responses import Response, RedirectResponse
-
 from app.extractor import extract_text_from_url
 from app.image_handler import process_image_tip
 from app.video_handler import get_combined_transcript
 from app.text_filter import clean_text
 from app.langchain_pipe import run_langchain_pipeline
 from app.qa_api import router as qa_router
-
 from app.summarizer import process_url_task
 from celery.result import AsyncResult
-# ✅ 같은 인스턴스 사용
 from app.celery_config import celery_app
-
-# ✅ 잘못된 import 수정
 from app.ai_utils import summarize_and_tag
 from app.elasticsearch_client import search_by_tag
 from app.thumbnail_handler import generate_thumbnail
