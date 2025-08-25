@@ -1,16 +1,15 @@
-# AI 프로젝트 저장소의 .github/workflows/ai-deploy.yml
+# 개선된 .github/workflows/ai-deploy.yml
 
 name: MogulMogul AI CI/CD
 
 on:
   push:
     branches: [ "main", "master" ]
-    # paths 부분을 삭제했습니다. 이 저장소의 모든 push가 배포 대상입니다.
 
 jobs:
   deploy:
     runs-on: ubuntu-latest
-
+    
     steps:
     - name: Deploy to EC2
       uses: appleboy/ssh-action@master
@@ -18,26 +17,100 @@ jobs:
         host: ${{ secrets.EC2_HOST }}
         username: ${{ secrets.EC2_USERNAME }}
         key: ${{ secrets.EC2_SSH_KEY }}
+        # SSH known_hosts 검증을 위해 추가
+        script_stop: true  # 스크립트 실행 중 오류 발생 시 중단
         script: |
+          set -e  # 오류 발생 시 스크립트 중단
+          
           APP_DIR="/home/ubuntu/app/ai"
+          
+          echo "Starting deployment process..."
+          
+          # 디렉토리 생성
           mkdir -p $APP_DIR
           cd $APP_DIR
           
-          # 이제 자신의 저장소만 clone/pull 하면 됩니다.
-          if [ -z "$(ls -A $APP_DIR)" ]; then
-            git clone https://github.com/${{ github.repository }}.git .
-          else
-            git pull origin main
-          fi
-
-          # .env 파일 생성 로직은 이전과 동일
-          echo "OPENAI_API_KEY=${{ secrets.OPENAI_API_KEY }}" > .env
-          echo "OPENAI_PROJECT_ID=${{ secrets.OPENAI_PROJECT_ID }}" >> .env
-          echo "OPENAI_ORGANIZATION_ID=${{ secrets.OPENAI_ORGANIZATION_ID }}" >> .env
-          echo "PGVECTOR_CONNECTION_STRING=postgresql+psycopg2://${{ secrets.RDS_USERNAME }}:${{ secrets.RDS_PASSWORD }}@${{ secrets.RDS_HOSTNAME }}:${{ secrets.RDS_PORT }}/${{ secrets.RDS_DB_NAME }}" >> .env
-          echo "REDIS_URL=redis://${{ secrets.REDIS_HOST }}:${{ secrets.REDIS_PORT }}/0" >> .env
-          echo "AWS_ACCESS_KEY_ID=${{ secrets.AWS_ACCESS_KEY_ID }}" >> .env
-          echo "AWS_SECRET_ACCESS_KEY=${{ secrets.AWS_SECRET_ACCESS_KEY }}" >> .env
-          echo "AWS_S3_BUCKET_NAME=${{ secrets.AWS_S3_BUCKET_NAME }}" >> .env
+          # 기존 컨테이너 정리 (배포 전 안전한 종료)
+          echo "Stopping existing containers..."
+          docker-compose down --remove-orphans || true
           
+          # Git 저장소 클론/업데이트
+          echo "Updating source code..."
+          if [ -d ".git" ]; then
+            git fetch origin
+            git reset --hard origin/main
+            git clean -fd
+          else
+            git clone https://github.com/${{ github.repository }}.git .
+          fi
+          
+          # .env 파일 생성 (기존 파일 백업)
+          echo "Setting up environment variables..."
+          if [ -f ".env" ]; then
+            cp .env .env.backup.$(date +%Y%m%d_%H%M%S)
+          fi
+          
+          cat > .env << EOF
+          OPENAI_API_KEY=${{ secrets.OPENAI_API_KEY }}
+          OPENAI_PROJECT_ID=${{ secrets.OPENAI_PROJECT_ID }}
+          OPENAI_ORGANIZATION_ID=${{ secrets.OPENAI_ORGANIZATION_ID }}
+          PGVECTOR_CONNECTION_STRING=postgresql+psycopg2://${{ secrets.RDS_USERNAME }}:${{ secrets.RDS_PASSWORD }}@${{ secrets.RDS_HOSTNAME }}:${{ secrets.RDS_PORT }}/${{ secrets.RDS_DB_NAME }}
+          REDIS_URL=redis://${{ secrets.REDIS_HOST }}:${{ secrets.REDIS_PORT }}/0
+          AWS_ACCESS_KEY_ID=${{ secrets.AWS_ACCESS_KEY_ID }}
+          AWS_SECRET_ACCESS_KEY=${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          AWS_S3_BUCKET_NAME=${{ secrets.AWS_S3_BUCKET_NAME }}
+          EOF
+          
+          # .env 파일 권한 설정 (보안 강화)
+          chmod 600 .env
+          
+          # Docker 이미지 빌드 및 컨테이너 실행
+          echo "Building and starting containers..."
           docker-compose up -d --build
+          
+          # 컨테이너 상태 확인
+          echo "Checking container health..."
+          sleep 30
+          
+          # FastAPI 컨테이너 상태 확인
+          if ! docker-compose ps | grep -q "momo_fastapi.*Up"; then
+            echo "FastAPI container failed to start"
+            docker-compose logs fastapi
+            exit 1
+          fi
+          
+          # Celery 컨테이너 상태 확인
+          if ! docker-compose ps | grep -q "momo_celery.*Up"; then
+            echo "Celery container failed to start"
+            docker-compose logs celery
+            exit 1
+          fi
+          
+          # 애플리케이션 health check
+          echo "Performing application health check..."
+          max_attempts=10
+          attempt=1
+          
+          while [ $attempt -le $max_attempts ]; do
+            if curl -f http://localhost:8000/health > /dev/null 2>&1; then
+              echo "Application is healthy!"
+              break
+            fi
+            
+            if [ $attempt -eq $max_attempts ]; then
+              echo "Health check failed after $max_attempts attempts"
+              docker-compose logs
+              exit 1
+            fi
+            
+            echo "Health check attempt $attempt/$max_attempts failed, retrying..."
+            sleep 10
+            attempt=$((attempt + 1))
+          done
+          
+          # 이전 이미지 정리 (디스크 공간 절약)
+          echo "Cleaning up old Docker images..."
+          docker image prune -f
+          
+          echo "Deployment completed successfully!"
+          docker-compose ps
