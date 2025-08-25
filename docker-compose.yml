@@ -1,5 +1,6 @@
-# 개선된 AI/docker-compose.yml
+# AI/docker-compose.yml
 
+# version을 명시하여 호환성을 높입니다.
 version: '3.8'
 
 services:
@@ -9,26 +10,13 @@ services:
       context: .
       dockerfile: Dockerfile
     container_name: momo_fastapi
-    restart: unless-stopped  # 수동으로 중지하지 않는 한 항상 재시작
+    restart: always
     ports:
       - "8000:8000"
     env_file:
       - .env
     volumes:
       - .:/app
-    # Health check 추가
-    healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
-      interval: 30s
-      timeout: 10s
-      retries: 3
-      start_period: 40s
-    # 로그 설정 (로그 파일 크기 제한)
-    logging:
-      driver: "json-file"
-      options:
-        max-size: "10m"
-        max-file: "3"
 
   # Celery 워커 서버
   celery:
@@ -36,26 +24,9 @@ services:
       context: .
       dockerfile: Dockerfile
     container_name: momo_celery
-    restart: unless-stopped
+    restart: always
     command: celery -A app.celery_config.celery_app worker --loglevel=info
     env_file:
       - .env
     volumes:
       - .:/app
-    # Health check 추가 (Celery inspect를 사용)
-    healthcheck:
-      test: ["CMD", "celery", "-A", "app.celery_config.celery_app", "inspect", "ping"]
-      interval: 30s
-      timeout: 10s
-      retries: 3
-      start_period: 40s
-    logging:
-      driver: "json-file"
-      options:
-        max-size: "10m"
-        max-file: "3"
-
-# 네트워크 설정 (옵션)
-networks:
-  default:
-    name: momo_network
