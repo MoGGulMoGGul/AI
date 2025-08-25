@@ -1,4 +1,4 @@
-# AI 프로젝트 저장소의 .github/workflows/ai-deploy.yml
+# .github/workflows/ai-deploy.yml
 
 name: MogulMogul AI CI/CD
 
@@ -6,37 +6,69 @@ on:
   push:
     branches: [ "main", "master" ]
 
+# 환경 변수 설정
+env:
+  # TODO: 본인의 Docker Hub 사용자 이름과 이미지 저장소 이름으로 변경하세요.
+  DOCKER_IMAGE_NAME: ganghyoun/moggulmoggul-ai
+
 jobs:
-  deploy:
+  build-and-deploy:
     runs-on: ubuntu-latest
-
     steps:
-    - name: Deploy to EC2
-      uses: appleboy/ssh-action@master
-      with:
-        host: ${{ secrets.EC2_HOST }}
-        username: ${{ secrets.EC2_USERNAME }}
-        key: ${{ secrets.EC2_SSH_KEY }}
-        script: |
-          APP_DIR="/home/ubuntu/app/ai"
-          mkdir -p $APP_DIR
-          cd $APP_DIR
-          
-          # 자신의 저장소만 clone/pull
-          if [ -z "$(ls -A $APP_DIR)" ]; then
-            git clone https://github.com/${{ github.repository }}.git .
-          else
-            git pull origin main
-          fi
+      # 1. 소스 코드 체크아웃
+      - name: Checkout source code
+        uses: actions/checkout@v3
 
-          # .env 파일 생성 로직
-          echo "OPENAI_API_KEY=${{ secrets.OPENAI_API_KEY }}" > .env
-          echo "OPENAI_PROJECT_ID=${{ secrets.OPENAI_PROJECT_ID }}" >> .env
-          echo "OPENAI_ORGANIZATION_ID=${{ secrets.OPENAI_ORGANIZATION_ID }}" >> .env
-          echo "PGVECTOR_CONNECTION_STRING=postgresql+psycopg2://${{ secrets.RDS_USERNAME }}:${{ secrets.RDS_PASSWORD }}@${{ secrets.RDS_HOSTNAME }}:${{ secrets.RDS_PORT }}/${{ secrets.RDS_DB_NAME }}" >> .env
-          echo "REDIS_URL=redis://${{ secrets.REDIS_HOST }}:${{ secrets.REDIS_PORT }}/0" >> .env
-          echo "AWS_ACCESS_KEY_ID=${{ secrets.AWS_ACCESS_KEY_ID }}" >> .env
-          echo "AWS_SECRET_ACCESS_KEY=${{ secrets.AWS_SECRET_ACCESS_KEY }}" >> .env
-          echo "AWS_S3_BUCKET_NAME=${{ secrets.AWS_S3_BUCKET_NAME }}" >> .env
-          
-          docker-compose up -d --build
+      # 2. Docker Hub 로그인
+      - name: Login to Docker Hub
+        uses: docker/login-action@v2
+        with:
+          username: ${{ secrets.DOCKERHUB_USERNAME }}
+          password: ${{ secrets.DOCKERHUB_TOKEN }}
+
+      # 3. Docker 이미지 빌드 및 Docker Hub에 푸시
+      - name: Build and push Docker image
+        uses: docker/build-push-action@v4
+        with:
+          context: .
+          dockerfile: Dockerfile
+          push: true
+          # 이미지에 태그 달기 (latest와 git commit 해시)
+          tags: |
+            ${{ env.DOCKER_IMAGE_NAME }}:latest
+            ${{ env.DOCKER_IMAGE_NAME }}:${{ github.sha }}
+
+      # 4. EC2에 접속하여 배포
+      - name: Deploy to EC2
+        uses: appleboy/ssh-action@master
+        with:
+          host: ${{ secrets.EC2_HOST }}
+          username: ${{ secrets.EC2_USERNAME }}
+          key: ${{ secrets.EC2_SSH_KEY }}
+          script: |
+            # 작업 디렉토리로 이동
+            APP_DIR="/home/ubuntu/app/ai"
+            mkdir -p $APP_DIR
+            cd $APP_DIR
+
+            # git pull을 통해 docker-compose.yml 등 최신 설정 파일 받기
+            git pull origin main
+
+            # .env 파일 생성 (기존과 동일)
+            echo "OPENAI_API_KEY=${{ secrets.OPENAI_API_KEY }}" > .env
+            echo "OPENAI_PROJECT_ID=${{ secrets.OPENAI_PROJECT_ID }}" >> .env
+            echo "OPENAI_ORGANIZATION_ID=${{ secrets.OPENAI_ORGANIZATION_ID }}" >> .env
+            echo "PGVECTOR_CONNECTION_STRING=postgresql+psycopg2://${{ secrets.RDS_USERNAME }}:${{ secrets.RDS_PASSWORD }}@${{ secrets.RDS_HOSTNAME }}:${{ secrets.RDS_PORT }}/${{ secrets.RDS_DB_NAME }}" >> .env
+            echo "REDIS_URL=redis://${{ secrets.REDIS_HOST }}:${{ secrets.REDIS_PORT }}/0" >> .env
+            echo "AWS_ACCESS_KEY_ID=${{ secrets.AWS_ACCESS_KEY_ID }}" >> .env
+            echo "AWS_SECRET_ACCESS_KEY=${{ secrets.AWS_SECRET_ACCESS_KEY }}" >> .env
+            echo "AWS_S3_BUCKET_NAME=${{ secrets.AWS_S3_BUCKET_NAME }}" >> .env
+
+            # Docker Hub에서 최신 이미지 받아오기
+            docker pull ${{ env.DOCKER_IMAGE_NAME }}:latest
+
+            # docker-compose로 서비스 재시작 (빌드 없이)
+            docker-compose up -d --no-build
+
+            # 사용하지 않는 이전 Docker 이미지 정리 (선택 사항)
+            docker image prune -f

@@ -1,32 +1,58 @@
 # AI/docker-compose.yml
 
-# version을 명시하여 호환성을 높입니다.
 version: '3.8'
 
 services:
   # FastAPI 애플리케이션 서버
   fastapi:
-    build:
-      context: .
-      dockerfile: Dockerfile
+    # build 섹션을 image로 변경
+    image: ganghyoun/moggulmoggul-ai:latest
     container_name: momo_fastapi
-    restart: always
+    restart: unless-stopped
     ports:
       - "8000:8000"
     env_file:
       - .env
-    volumes:
-      - .:/app
+    # volumes는 개발 중 코드 변경을 즉시 반영할 때 유용하지만,
+    # 이미지 기반 배포에서는 제거해도 무방합니다.
+    # 필요에 따라 유지하거나 삭제하세요.
+    # volumes:
+    #   - .:/app
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
 
   # Celery 워커 서버
   celery:
-    build:
-      context: .
-      dockerfile: Dockerfile
+    # build 섹션을 image로 변경
+    image: ganghyoun/moggulmoggul-ai:latest
     container_name: momo_celery
-    restart: always
+    restart: unless-stopped
     command: celery -A app.celery_config.celery_app worker --loglevel=info
     env_file:
       - .env
-    volumes:
-      - .:/app
+    # volumes:
+    #   - .:/app
+    healthcheck:
+      test: ["CMD", "celery", "-A", "app.celery_config.celery_app", "inspect", "ping"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+networks:
+  default:
+    name: momo_network
