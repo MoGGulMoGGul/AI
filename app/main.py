@@ -56,6 +56,7 @@ async def extract_image_tip(file: UploadFile = File(...)):
 class VideoRequest(BaseModel):
     url: str
 
+# 비디오 URL에서 자막 추출, 정리, 요약 및 태그 생성
 @app.post("/extract-video-tip")
 def extract_video_tip(request: VideoRequest):
     full_text = get_combined_transcript(request.url)
