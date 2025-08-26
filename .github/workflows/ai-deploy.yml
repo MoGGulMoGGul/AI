@@ -35,13 +35,15 @@ jobs:
             ${{ env.DOCKER_IMAGE_NAME }}:latest
             ${{ env.DOCKER_IMAGE_NAME }}:${{ github.sha }}
 
-      # 4. EC2에 접속하여 배포 (Git 충돌 해결)
+      # 4. EC2에 접속하여 배포
       - name: Deploy to EC2
         uses: appleboy/ssh-action@master
         with:
           host: ${{ secrets.EC2_HOST }}
           username: ${{ secrets.EC2_USERNAME }}
           key: ${{ secrets.EC2_SSH_KEY }}
+          # 타임아웃 시간을 30분으로 늘립니다.
+          timeout: 30m
           script: |
             set -ex
 
