@@ -8,6 +8,7 @@ on:
 
 env:
   DOCKER_IMAGE_NAME: ganghyoun/moggulmoggul-ai
+
 jobs:
   build-and-deploy:
     runs-on: ubuntu-latest
@@ -28,14 +29,13 @@ jobs:
         uses: docker/build-push-action@v4
         with:
           context: .
-          # 'dockerfile:'을 올바른 옵션인 'file:'로 수정했습니다.
           file: ./Dockerfile
           push: true
           tags: |
             ${{ env.DOCKER_IMAGE_NAME }}:latest
             ${{ env.DOCKER_IMAGE_NAME }}:${{ github.sha }}
 
-      # 4. EC2에 접속하여 배포
+      # 4. EC2에 접속하여 배포 (PAT 인증 방식으로 수정)
       - name: Deploy to EC2
         uses: appleboy/ssh-action@master
         with:
@@ -44,18 +44,19 @@ jobs:
           key: ${{ secrets.EC2_SSH_KEY }}
           script: |
             APP_DIR="/home/ubuntu/app/ai"
+            # PAT를 이용한 HTTPS 주소 방식으로 변경
             REPO_URL="https://github.com/${{ github.repository }}.git"
-
-            # 디렉토리가 없으면 git clone, 있으면 git pull 하도록 수정
+            
+            # 디렉토리가 없으면 git clone, 있으면 git pull
             if [ ! -d "$APP_DIR" ] ; then
-              git clone $REPO_URL $APP_DIR
+              git clone https://${{ github.actor }}:${{ secrets.GH_PAT }}@github.com/${{ github.repository }}.git $APP_DIR
               cd $APP_DIR
             else
               cd $APP_DIR
-              git pull origin main
+              git pull https://${{ github.actor }}:${{ secrets.GH_PAT }}@github.com/${{ github.repository }}.git main
             fi
 
-            # .env 파일 생성 (전체 .env 변수를 포함해야 합니다)
+            # .env 파일 생성
             echo "OPENAI_API_KEY=${{ secrets.OPENAI_API_KEY }}" > .env
             echo "OPENAI_PROJECT_ID=${{ secrets.OPENAI_PROJECT_ID }}" >> .env
             echo "OPENAI_ORGANIZATION_ID=${{ secrets.OPENAI_ORGANIZATION_ID }}" >> .env
