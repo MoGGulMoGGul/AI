@@ -1,25 +1,35 @@
 # AI/docker-compose.yml
 
-version: '3.8'
-
+# 'version' 속성은 최신 Docker Compose에서 사용되지 않으므로 제거했습니다.
 services:
+  # Redis 서비스 추가
+  redis:
+    image: "redis:alpine"
+    container_name: momo_redis
+    restart: unless-stopped
+    ports:
+      # 외부에서 직접 접속할 필요는 없으므로 주석 처리하거나 삭제해도 됩니다.
+      # 필요하다면 남겨두세요.
+      - "6379:6379"
+    networks:
+      - momo_network
+
   # FastAPI 애플리케이션 서버
   fastapi:
-    # build 섹션을 image로 변경
-    image: ganghyoun/moggulmoggul-ai:latest
+    image: ganghyoun/moggulmoggul-ai:latest 
     container_name: momo_fastapi
     restart: unless-stopped
     ports:
       - "8000:8000"
     env_file:
       - .env
-    # volumes는 개발 중 코드 변경을 즉시 반영할 때 유용하지만,
-    # 이미지 기반 배포에서는 제거해도 무방합니다.
-    # 필요에 따라 유지하거나 삭제하세요.
-    # volumes:
-    #   - .:/app
+    # Redis가 먼저 실행되도록 depends_on 추가
+    depends_on:
+      - redis
+    networks:
+      - momo_network
     healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      test: ["CMD", "curl", "-f", "http://localhost:8000/docs"] # /docs 엔드포인트로 변경
       interval: 30s
       timeout: 10s
       retries: 3
@@ -32,15 +42,17 @@ services:
 
   # Celery 워커 서버
   celery:
-    # build 섹션을 image로 변경
     image: ganghyoun/moggulmoggul-ai:latest
     container_name: momo_celery
     restart: unless-stopped
     command: celery -A app.celery_config.celery_app worker --loglevel=info
     env_file:
       - .env
-    # volumes:
-    #   - .:/app
+    # Redis가 먼저 실행되도록 depends_on 추가
+    depends_on:
+      - redis
+    networks:
+      - momo_network
     healthcheck:
       test: ["CMD", "celery", "-A", "app.celery_config.celery_app", "inspect", "ping"]
       interval: 30s
@@ -53,6 +65,7 @@ services:
         max-size: "10m"
         max-file: "3"
 
+# 모든 컨테이너가 같은 네트워크를 공유하도록 설정
 networks:
-  default:
-    name: momo_network
+  momo_network:
+    driver: bridge
