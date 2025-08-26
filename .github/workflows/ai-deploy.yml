@@ -35,7 +35,7 @@ jobs:
             ${{ env.DOCKER_IMAGE_NAME }}:latest
             ${{ env.DOCKER_IMAGE_NAME }}:${{ github.sha }}
 
-      # 4. EC2에 접속하여 배포 (docker-compose.yml 파일 직접 생성)
+      # 4. EC2에 접속하여 배포
       - name: Deploy to EC2
         uses: appleboy/ssh-action@master
         with:
@@ -43,21 +43,26 @@ jobs:
           username: ${{ secrets.EC2_USERNAME }}
           key: ${{ secrets.EC2_SSH_KEY }}
           script: |
+            set -e  # 오류 시 스크립트 중단
+            
             APP_DIR="/home/ubuntu/app/ai"
             
-            echo "Creating app directory..."
-            mkdir -p $APP_DIR
-            cd $APP_DIR
+            echo "=== Starting deployment ==="
+            echo "Creating app directory: $APP_DIR"
+            mkdir -p "$APP_DIR"
+            cd "$APP_DIR"
             
-            echo "Current directory: $(pwd)"
+            echo "Current working directory: $(pwd)"
             
             # 기존 컨테이너 정리
-            echo "Stopping existing containers..."
-            docker-compose down 2>/dev/null || true
+            echo "=== Stopping existing containers ==="
+            if [ -f "docker-compose.yml" ]; then
+              docker-compose down || true
+            fi
             
             # .env 파일 생성
-            echo "Creating .env file..."
-            cat > .env << 'EOF'
+            echo "=== Creating .env file ==="
+            cat > .env << 'ENV_EOF'
             OPENAI_API_KEY=${{ secrets.OPENAI_API_KEY }}
             OPENAI_PROJECT_ID=${{ secrets.OPENAI_PROJECT_ID }}
             OPENAI_ORGANIZATION_ID=${{ secrets.OPENAI_ORGANIZATION_ID }}
@@ -66,11 +71,13 @@ jobs:
             AWS_ACCESS_KEY_ID=${{ secrets.AWS_ACCESS_KEY_ID }}
             AWS_SECRET_ACCESS_KEY=${{ secrets.AWS_SECRET_ACCESS_KEY }}
             AWS_S3_BUCKET_NAME=${{ secrets.AWS_S3_BUCKET_NAME }}
-            EOF
+            ENV_EOF
+            
+            echo ".env file created successfully"
 
             # docker-compose.yml 파일 생성
-            echo "Creating docker-compose.yml file..."
-            cat > docker-compose.yml << 'EOF'
+            echo "=== Creating docker-compose.yml file ==="
+            cat > docker-compose.yml << 'COMPOSE_EOF'
             version: '3.8'
 
             services:
@@ -118,23 +125,33 @@ jobs:
             networks:
               default:
                 name: momo_network
-            EOF
+            COMPOSE_EOF
+            
+            echo "docker-compose.yml file created successfully"
 
-            echo "Files created:"
+            echo "=== Files in directory ==="
             ls -la
+            
+            echo "=== Checking file contents ==="
+            echo "First few lines of .env:"
+            head -3 .env || echo "Error reading .env"
+            echo "First few lines of docker-compose.yml:"
+            head -5 docker-compose.yml || echo "Error reading docker-compose.yml"
 
             # Docker Hub에서 최신 이미지 받아오기
-            echo "Pulling latest Docker image..."
-            docker pull ${{ env.DOCKER_IMAGE_NAME }}:latest
+            echo "=== Pulling latest Docker image ==="
+            docker pull "${{ env.DOCKER_IMAGE_NAME }}:latest"
 
             # docker-compose로 서비스 시작
-            echo "Starting services with docker-compose..."
+            echo "=== Starting services with docker-compose ==="
             docker-compose up -d --no-build
 
             # 컨테이너 상태 확인
-            echo "Container status:"
+            echo "=== Container status ==="
             docker-compose ps
 
             # 사용하지 않는 이전 Docker 이미지 정리
-            echo "Cleaning up unused Docker images..."
+            echo "=== Cleaning up unused Docker images ==="
             docker image prune -f
+            
+            echo "=== Deployment completed ==="
