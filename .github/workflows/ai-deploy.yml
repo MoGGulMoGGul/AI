@@ -35,7 +35,7 @@ jobs:
             ${{ env.DOCKER_IMAGE_NAME }}:latest
             ${{ env.DOCKER_IMAGE_NAME }}:${{ github.sha }}
 
-      # 4. EC2에 접속하여 배포 (PAT 인증 방식으로 수정)
+      # 4. EC2에 접속하여 배포 (docker-compose.yml 파일 직접 생성)
       - name: Deploy to EC2
         uses: appleboy/ssh-action@master
         with:
@@ -44,53 +44,90 @@ jobs:
           key: ${{ secrets.EC2_SSH_KEY }}
           script: |
             APP_DIR="/home/ubuntu/app/ai"
-            # PAT를 이용한 HTTPS 주소 방식으로 변경
-            REPO_URL="https://github.com/${{ github.repository }}.git"
+            
+            echo "Creating app directory..."
+            mkdir -p $APP_DIR
+            cd $APP_DIR
+            
+            echo "Current directory: $(pwd)"
             
             # 기존 컨테이너 정리
-            echo "Stopping and removing existing containers..."
-            cd $APP_DIR 2>/dev/null && docker-compose down 2>/dev/null || true
+            echo "Stopping existing containers..."
+            docker-compose down 2>/dev/null || true
             
-            # 디렉토리가 없으면 git clone, 있으면 git pull
-            if [ ! -d "$APP_DIR" ] ; then
-              echo "Cloning repository..."
-              git clone https://${{ github.actor }}:${{ secrets.GH_PAT }}@github.com/${{ github.repository }}.git $APP_DIR
-              cd $APP_DIR
-            else
-              echo "Updating repository..."
-              cd $APP_DIR
-              git pull https://${{ github.actor }}:${{ secrets.GH_PAT }}@github.com/${{ github.repository }}.git main
-            fi
-
-            # 현재 디렉토리 확인
-            echo "Current directory: $(pwd)"
-            echo "Files in current directory:"
-            ls -la
-
             # .env 파일 생성
             echo "Creating .env file..."
-            echo "OPENAI_API_KEY=${{ secrets.OPENAI_API_KEY }}" > .env
-            echo "OPENAI_PROJECT_ID=${{ secrets.OPENAI_PROJECT_ID }}" >> .env
-            echo "OPENAI_ORGANIZATION_ID=${{ secrets.OPENAI_ORGANIZATION_ID }}" >> .env
-            echo "PGVECTOR_CONNECTION_STRING=postgresql+psycopg2://${{ secrets.RDS_USERNAME }}:${{ secrets.RDS_PASSWORD }}@${{ secrets.RDS_HOSTNAME }}:${{ secrets.RDS_PORT }}/${{ secrets.RDS_DB_NAME }}" >> .env
-            echo "REDIS_URL=redis://${{ secrets.REDIS_HOST }}:${{ secrets.REDIS_PORT }}/0" >> .env
-            echo "AWS_ACCESS_KEY_ID=${{ secrets.AWS_ACCESS_KEY_ID }}" >> .env
-            echo "AWS_SECRET_ACCESS_KEY=${{ secrets.AWS_SECRET_ACCESS_KEY }}" >> .env
-            echo "AWS_S3_BUCKET_NAME=${{ secrets.AWS_S3_BUCKET_NAME }}" >> .env
+            cat > .env << 'EOF'
+            OPENAI_API_KEY=${{ secrets.OPENAI_API_KEY }}
+            OPENAI_PROJECT_ID=${{ secrets.OPENAI_PROJECT_ID }}
+            OPENAI_ORGANIZATION_ID=${{ secrets.OPENAI_ORGANIZATION_ID }}
+            PGVECTOR_CONNECTION_STRING=postgresql+psycopg2://${{ secrets.RDS_USERNAME }}:${{ secrets.RDS_PASSWORD }}@${{ secrets.RDS_HOSTNAME }}:${{ secrets.RDS_PORT }}/${{ secrets.RDS_DB_NAME }}
+            REDIS_URL=redis://${{ secrets.REDIS_HOST }}:${{ secrets.REDIS_PORT }}/0
+            AWS_ACCESS_KEY_ID=${{ secrets.AWS_ACCESS_KEY_ID }}
+            AWS_SECRET_ACCESS_KEY=${{ secrets.AWS_SECRET_ACCESS_KEY }}
+            AWS_S3_BUCKET_NAME=${{ secrets.AWS_S3_BUCKET_NAME }}
+            EOF
+
+            # docker-compose.yml 파일 생성
+            echo "Creating docker-compose.yml file..."
+            cat > docker-compose.yml << 'EOF'
+            version: '3.8'
+
+            services:
+              # FastAPI 애플리케이션 서버
+              fastapi:
+                image: ganghyoun/moggulmoggul-ai:latest
+                container_name: momo_fastapi
+                restart: unless-stopped
+                ports:
+                  - "8000:8000"
+                env_file:
+                  - .env
+                healthcheck:
+                  test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+                  interval: 30s
+                  timeout: 10s
+                  retries: 3
+                  start_period: 40s
+                logging:
+                  driver: "json-file"
+                  options:
+                    max-size: "10m"
+                    max-file: "3"
+
+              # Celery 워커 서버
+              celery:
+                image: ganghyoun/moggulmoggul-ai:latest
+                container_name: momo_celery
+                restart: unless-stopped
+                command: celery -A app.celery_config.celery_app worker --loglevel=info
+                env_file:
+                  - .env
+                healthcheck:
+                  test: ["CMD", "celery", "-A", "app.celery_config.celery_app", "inspect", "ping"]
+                  interval: 30s
+                  timeout: 10s
+                  retries: 3
+                  start_period: 40s
+                logging:
+                  driver: "json-file"
+                  options:
+                    max-size: "10m"
+                    max-file: "3"
+
+            networks:
+              default:
+                name: momo_network
+            EOF
+
+            echo "Files created:"
+            ls -la
 
             # Docker Hub에서 최신 이미지 받아오기
             echo "Pulling latest Docker image..."
             docker pull ${{ env.DOCKER_IMAGE_NAME }}:latest
 
-            # docker-compose.yml 파일 존재 확인
-            if [ ! -f "docker-compose.yml" ]; then
-              echo "Error: docker-compose.yml not found!"
-              echo "Available files:"
-              ls -la
-              exit 1
-            fi
-
-            # docker-compose로 서비스 재시작
+            # docker-compose로 서비스 시작
             echo "Starting services with docker-compose..."
             docker-compose up -d --no-build
 
