@@ -5,17 +5,44 @@ import os
 
 load_dotenv()
 
+# Redis 연결 설정을 환경변수에서 가져오되, 기본값 설정
+CELERY_BROKER_URL = os.getenv("CELERY_BROKER_URL", "redis://redis:6379/0")
+CELERY_RESULT_BACKEND = os.getenv("CELERY_RESULT_BACKEND", "redis://redis:6379/0")
+
 celery_app = Celery(
     "app",
-    broker=os.getenv("CELERY_BROKER_URL", "redis://redis:6379/0"),
-    backend=os.getenv("CELERY_RESULT_BACKEND", "redis://redis:6379/0"),
-    # 작업이 포함된 모듈을 명시적으로 포함하여 안정성을 높입니다.
+    broker=CELERY_BROKER_URL,
+    backend=CELERY_RESULT_BACKEND,
     include=['app.summarizer']
 )
 
-# 'include' 옵션을 사용하므로 autodiscover_tasks는 더 이상 필요하지 않습니다.
-# celery_app.autodiscover_tasks(["app"])
-
+# Celery 설정 최적화
 celery_app.conf.update(
-    task_annotations={'app.summarizer.process_url_task': {'rate_limit': '10/m'}},
+    # 작업 설정
+    task_annotations={
+        'app.summarizer.process_url_task': {'rate_limit': '10/m'}
+    },
+    # 직렬화 설정
+    task_serializer='json',
+    result_serializer='json',
+    accept_content=['json'],
+    
+    # 시간대 설정
+    timezone='Asia/Seoul',
+    enable_utc=True,
+    
+    # Redis 연결 최적화
+    broker_connection_retry_on_startup=True,
+    broker_connection_retry=True,
+    broker_connection_max_retries=10,
+    
+    # 결과 만료 시간 (1시간)
+    result_expires=3600,
+    
+    # Worker 최적화
+    worker_prefetch_multiplier=1,
+    task_acks_late=True,
+    
+    # 메모리 누수 방지
+    worker_max_tasks_per_child=50,
 )

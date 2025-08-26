@@ -1,63 +1,66 @@
-# AI/docker-compose.yml
+version: '3.8'
 
 services:
+  # 기본 이미지를 빌드하고 태그를 지정하는 서비스
+  # 다른 서비스들이 이 이미지를 기반으로 빌드됩니다.
+  base:
+    build:
+      context: .
+      dockerfile: Dockerfile.base
+    image: ai-base:latest
+
+  db:
+    image: postgres:13
+    container_name: db
+    volumes:
+      - postgres_data:/var/lib/postgresql/data/
+      - ./init.sql:/docker-entrypoint-initdb.d/init.sql
+    environment:
+      - POSTGRES_DB=${POSTGRES_DB}
+      - POSTGRES_USER=${POSTGRES_USER}
+      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD}
+    ports:
+      - "5432:5432"
+    restart: always
+
   redis:
-    image: "redis:alpine"
-    container_name: momo_redis
-    restart: unless-stopped
+    image: redis:6.2-alpine
+    container_name: redis
     ports:
       - "6379:6379"
-    networks:
-      - momo_network
+    restart: always
 
-  fastapi:
-    image: ganghyoun/moggulmoggul-ai:latest
-    container_name: momo_fastapi
-    restart: unless-stopped
+  web:
+    # base 이미지가 먼저 빌드되도록 설정
+    depends_on:
+      - base
+      - db
+      - redis
+    build:
+      context: .
+      # web 서비스 전용 Dockerfile 지정
+      dockerfile: Dockerfile.web
+    container_name: web
+    env_file:
+      - .env
     ports:
       - "8000:8000"
-    env_file:
-      - .env
-    depends_on:
-      - redis
-    networks:
-      - momo_network
-    healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:8000/docs"]
-      interval: 30s
-      timeout: 10s
-      retries: 3
-      start_period: 40s
-    logging:
-      driver: "json-file"
-      options:
-        max-size: "10m"
-        max-file: "3"
+    restart: always
 
   celery:
-    image: ganghyoun/moggulmoggul-ai:latest 
-    container_name: momo_celery
-    restart: unless-stopped
-    # command를 FastAPI가 사용하는 celery_app을 가리키도록 수정
-    command: celery -A app.celery_config.celery_app worker --loglevel=info
+    # base 이미지가 먼저 빌드되도록 설정
+    depends_on:
+      - base
+      - web
+      - redis
+    build:
+      context: .
+      # celery 서비스 전용 Dockerfile 지정
+      dockerfile: Dockerfile.celery
+    container_name: celery
     env_file:
       - .env
-    depends_on:
-      - redis
-    networks:
-      - momo_network
-    healthcheck:
-      test: ["CMD", "celery", "-A", "app.celery_config.celery_app", "inspect", "ping"]
-      interval: 30s
-      timeout: 10s
-      retries: 3
-      start_period: 40s
-    logging:
-      driver: "json-file"
-      options:
-        max-size: "10m"
-        max-file: "3"
+    restart: always
 
-networks:
-  momo_network:
-    driver: bridge
+volumes:
+  postgres_data:

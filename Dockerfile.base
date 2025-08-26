@@ -1,0 +1,17 @@
+# Dockerfile.web
+# 이 Dockerfile은 FastAPI 웹 서비스를 위한 이미지를 생성합니다.
+# 이미 빌드된 base 이미지를 사용하여 의존성 설치 과정을 건너뛰고, 애플리케이션 코드만 추가합니다.
+FROM ai-base:latest as base
+
+# 작업 디렉토리 설정
+WORKDIR /app
+
+# 기본 이미지로부터 모든 의존성을 복사합니다.
+COPY --from=base /usr/local/lib/python3.10/site-packages/ /usr/local/lib/python3.10/site-packages/
+COPY --from=base /root/.cache/ /root/.cache/
+
+# 애플리케이션 코드 복사
+COPY ./app /app/app
+
+# uvicorn 서버 실행
+CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000"]

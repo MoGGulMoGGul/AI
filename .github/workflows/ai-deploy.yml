@@ -36,52 +36,49 @@ jobs:
             ${{ env.DOCKER_IMAGE_NAME }}:${{ github.sha }}
 
       # 4. EC2에 접속하여 배포
-      - name: Deploy to EC2
-        uses: appleboy/ssh-action@master
+      # .github/workflows/deploy.yml
+name: Deploy to EC2
+
+on:
+  push:
+    branches:
+      - main # main 브랜치에 push될 때 실행
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v3
+
+      - name: Setup SSH
+        uses: webfactory/ssh-agent@v0.5.3
         with:
-          host: ${{ secrets.EC2_HOST }}
-          username: ${{ secrets.EC2_USERNAME }}
-          key: ${{ secrets.EC2_SSH_KEY }}
-          # 타임아웃 시간을 60분으로 늘립니다.
-          timeout: 60m
-          script: |
-            set -ex
+          ssh-private-key: ${{ secrets.EC2_SSH_KEY }}
 
-            APP_DIR="/home/ubuntu/app/ai"
-            AUTH_REPO_URL="https://x-access-token:${{ secrets.GH_PAT }}@github.com/${{ github.repository }}.git"
+      - name: Add EC2 host to known_hosts
+        run: |
+          ssh-keyscan -H ${{ secrets.EC2_HOST }} >> ~/.ssh/known_hosts
 
-            if [ -d "$APP_DIR/.git" ]; then
-              echo "--- Repository exists. Forcefully resetting to latest changes. ---"
-              cd $APP_DIR
-              git fetch origin
-              git reset --hard origin/main
-            else
-              echo "--- Repository does not exist. Cloning new repository. ---"
-              git clone $AUTH_REPO_URL $APP_DIR
-              cd $APP_DIR
-            fi
-            
-            echo "--- Git operation complete. ---"
-            ls -al
+      - name: Deploy to EC2
+        run: |
+          ssh ubuntu@${{ secrets.EC2_HOST }} '
+            cd ~/AI # 프로젝트 디렉토리로 이동
+            git pull origin main # 최신 코드 가져오기
 
-            echo "--- Creating .env file ---"
-            echo "OPENAI_API_KEY=${{ secrets.OPENAI_API_KEY }}" > .env
-            echo "OPENAI_PROJECT_ID=${{ secrets.OPENAI_PROJECT_ID }}" >> .env
-            echo "OPENAI_ORGANIZATION_ID=${{ secrets.OPENAI_ORGANIZATION_ID }}" >> .env
-            echo "PGVECTOR_CONNECTION_STRING=postgresql+psycopg2://${{ secrets.RDS_USERNAME }}:${{ secrets.RDS_PASSWORD }}@${{ secrets.RDS_HOSTNAME }}:${{ secrets.RDS_PORT }}/${{ secrets.RDS_DB_NAME }}" >> .env
-            echo "REDIS_URL=redis://${{ secrets.REDIS_HOST }}:${{ secrets.REDIS_PORT }}/0" >> .env
-            echo "AWS_ACCESS_KEY_ID=${{ secrets.AWS_ACCESS_KEY_ID }}" >> .env
-            echo "AWS_SECRET_ACCESS_KEY=${{ secrets.AWS_SECRET_ACCESS_KEY }}" >> .env
-            echo "AWS_S3_BUCKET_NAME=${{ secrets.AWS_S3_BUCKET_NAME }}" >> .env
-            echo "--- .env file created. ---"
+            # 1. 기본 이미지를 먼저 빌드합니다.
+            # requirements.txt가 변경되지 않았다면 이 단계는 캐시를 사용해 매우 빠르게 완료됩니다.
+            docker-compose build base
 
-            echo "--- Pulling latest Docker image ---"
-            docker pull ${{ env.DOCKER_IMAGE_NAME }}:latest
+            # 2. web과 celery 서비스를 빌드합니다.
+            # 이 단계들도 캐시된 base 이미지를 사용하므로 코드 복사만 수행합니다.
+            docker-compose build web celery
 
-            echo "--- Starting services with docker-compose ---"
-            docker-compose up -d --no-build
+            # 3. 컨테이너를 백그라운드에서 실행합니다.
+            # --remove-orphans 옵션은 compose 파일에서 사라진 서비스를 중지하고 삭제합니다.
+            docker-compose up -d --remove-orphans
 
-            echo "--- Cleaning up unused Docker images ---"
+            # 4. 불필요한 Docker 이미지(dangling images)를 정리하여 서버 용량을 확보합니다.
             docker image prune -f
-            
-            echo "--- Deployment script finished successfully! ---"
+          '
