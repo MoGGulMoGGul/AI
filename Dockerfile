@@ -27,11 +27,13 @@ RUN pip install --upgrade pip && \
 # =====================================================================
 FROM python:3.11-slim
 
-# 필수 런타임 시스템 패키지만 설치
+# 필수 런타임 시스템 패키지 및 Playwright 의존성 수동 설치
 RUN apt-get update && apt-get install -y --no-install-recommends \
     libgl1 \
     libglib2.0-0 \
     ffmpeg \
+    # Playwright 실행에 필요한 라이브러리들
+    libnss3 libnspr4 libdbus-1-3 libatk1.0-0 libatk-bridge2.0-0 libcups2 libdrm2 libatspi2.0-0 libxcomposite1 libxdamage1 libxfixes3 libxrandr2 libgbm1 libxkbcommon0 libpango-1.0-0 libcairo2 libasound2 \
   && rm -rf /var/lib/apt/lists/*
 
 # 작업 디렉토리 설정
@@ -43,10 +45,8 @@ COPY --from=builder /opt/venv /opt/venv
 # 가상 환경을 사용하도록 환경 변수 설정
 ENV PATH="/opt/venv/bin:$PATH"
 
-# Playwright 브라우저 설치
-# RUN python -m playwright install chromium # 이 부분은 시간이 매우 오래 걸릴 수 있으므로,
-# 만약 문제가 지속되면 아래 Dockerfile.playwright 이미지를 사용하는 것을 고려
-RUN python -m playwright install --with-deps chromium
+# Playwright 브라우저 설치 (의존성 설치 플래그 제거)
+RUN python -m playwright install chromium
 
 # 애플리케이션 소스 코드 복사
 COPY ./app ./app
