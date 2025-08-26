@@ -8,7 +8,6 @@ on:
 
 # 환경 변수 설정
 env:
-  # TODO: 본인의 Docker Hub 사용자 이름과 이미지 저장소 이름으로 변경하세요.
   DOCKER_IMAGE_NAME: ganghyoun/moggulmoggul-ai
 
 jobs:
