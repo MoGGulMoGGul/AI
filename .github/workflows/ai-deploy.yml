@@ -35,7 +35,7 @@ jobs:
             ${{ env.DOCKER_IMAGE_NAME }}:latest
             ${{ env.DOCKER_IMAGE_NAME }}:${{ github.sha }}
 
-      # 4. EC2에 접속하여 배포 (PAT 인증 방식 수정)
+      # 4. EC2에 접속하여 배포 (PAT 인증 방식으로 수정)
       - name: Deploy to EC2
         uses: appleboy/ssh-action@master
         with:
@@ -44,23 +44,31 @@ jobs:
           key: ${{ secrets.EC2_SSH_KEY }}
           script: |
             APP_DIR="/home/ubuntu/app/ai"
-            # PAT 인증을 위한 URL (x-access-token 방식)
-            AUTH_REPO_URL="https://x-access-token:${{ secrets.GH_PAT }}@github.com/${{ github.repository }}.git"
-
-            # .git 디렉토리 존재 여부로 저장소 상태를 더 정확하게 확인
-            if [ -d "$APP_DIR/.git" ]; then
-              echo "Repository exists. Pulling latest changes."
+            # PAT를 이용한 HTTPS 주소 방식으로 변경
+            REPO_URL="https://github.com/${{ github.repository }}.git"
+            
+            # 기존 컨테이너 정리
+            echo "Stopping and removing existing containers..."
+            cd $APP_DIR 2>/dev/null && docker-compose down 2>/dev/null || true
+            
+            # 디렉토리가 없으면 git clone, 있으면 git pull
+            if [ ! -d "$APP_DIR" ] ; then
+              echo "Cloning repository..."
+              git clone https://${{ github.actor }}:${{ secrets.GH_PAT }}@github.com/${{ github.repository }}.git $APP_DIR
               cd $APP_DIR
-              git pull $AUTH_REPO_URL main
             else
-              echo "Repository does not exist. Cloning."
-              # 실패했던 경우를 대비해 기존 디렉토리 정리 후 클론
-              rm -rf $APP_DIR
-              git clone $AUTH_REPO_URL $APP_DIR
+              echo "Updating repository..."
               cd $APP_DIR
+              git pull https://${{ github.actor }}:${{ secrets.GH_PAT }}@github.com/${{ github.repository }}.git main
             fi
 
+            # 현재 디렉토리 확인
+            echo "Current directory: $(pwd)"
+            echo "Files in current directory:"
+            ls -la
+
             # .env 파일 생성
+            echo "Creating .env file..."
             echo "OPENAI_API_KEY=${{ secrets.OPENAI_API_KEY }}" > .env
             echo "OPENAI_PROJECT_ID=${{ secrets.OPENAI_PROJECT_ID }}" >> .env
             echo "OPENAI_ORGANIZATION_ID=${{ secrets.OPENAI_ORGANIZATION_ID }}" >> .env
@@ -71,10 +79,25 @@ jobs:
             echo "AWS_S3_BUCKET_NAME=${{ secrets.AWS_S3_BUCKET_NAME }}" >> .env
 
             # Docker Hub에서 최신 이미지 받아오기
+            echo "Pulling latest Docker image..."
             docker pull ${{ env.DOCKER_IMAGE_NAME }}:latest
 
+            # docker-compose.yml 파일 존재 확인
+            if [ ! -f "docker-compose.yml" ]; then
+              echo "Error: docker-compose.yml not found!"
+              echo "Available files:"
+              ls -la
+              exit 1
+            fi
+
             # docker-compose로 서비스 재시작
+            echo "Starting services with docker-compose..."
             docker-compose up -d --no-build
 
+            # 컨테이너 상태 확인
+            echo "Container status:"
+            docker-compose ps
+
             # 사용하지 않는 이전 Docker 이미지 정리
+            echo "Cleaning up unused Docker images..."
             docker image prune -f
