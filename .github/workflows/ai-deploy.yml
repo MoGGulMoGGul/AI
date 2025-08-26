@@ -7,7 +7,7 @@ on:
     branches: [ "main", "master" ]
 
 env:
-  DOCK_IMAGE_NAME: ganghyoun/moggulmoggul-ai
+  DOCKER_IMAGE_NAME: ganghyoun/moggulmoggul-ai
 
 jobs:
   build-and-deploy:
