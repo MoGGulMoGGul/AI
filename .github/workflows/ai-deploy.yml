@@ -35,7 +35,7 @@ jobs:
             ${{ env.DOCKER_IMAGE_NAME }}:latest
             ${{ env.DOCKER_IMAGE_NAME }}:${{ github.sha }}
 
-      # 4. EC2에 접속하여 배포 (디버깅 강화)
+      # 4. EC2에 접속하여 배포 (Git 충돌 해결)
       - name: Deploy to EC2
         uses: appleboy/ssh-action@master
         with:
@@ -43,29 +43,23 @@ jobs:
           username: ${{ secrets.EC2_USERNAME }}
           key: ${{ secrets.EC2_SSH_KEY }}
           script: |
-            # -e: 오류 발생 시 즉시 스크립트 중단
-            # -x: 실행되는 모든 명령어를 로그에 출력
             set -ex
 
             APP_DIR="/home/ubuntu/app/ai"
             AUTH_REPO_URL="https://x-access-token:${{ secrets.GH_PAT }}@github.com/${{ github.repository }}.git"
 
-            echo "--- Starting deployment script on EC2 ---"
-
             if [ -d "$APP_DIR/.git" ]; then
-              echo "--- Repository exists. Pulling latest changes. ---"
+              echo "--- Repository exists. Forcefully resetting to latest changes. ---"
               cd $APP_DIR
-              git pull $AUTH_REPO_URL main
+              git fetch origin
+              git reset --hard origin/main
             else
               echo "--- Repository does not exist. Cloning new repository. ---"
-              rm -rf $APP_DIR
               git clone $AUTH_REPO_URL $APP_DIR
+              cd $APP_DIR
             fi
             
-            echo "--- Git operation complete. Changing to app directory. ---"
-            cd $APP_DIR
-
-            echo "--- Listing files in directory to confirm clone/pull ---"
+            echo "--- Git operation complete. ---"
             ls -al
 
             echo "--- Creating .env file ---"

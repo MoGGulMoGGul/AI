@@ -1,85 +1,68 @@
-# .github/workflows/ai-deploy.yml
+# AI/docker-compose.yml
 
-name: MogulMogul AI CI/CD
+services:
+  # Redis 서비스 추가
+  redis:
+    image: "redis:alpine"
+    container_name: momo_redis
+    restart: unless-stopped
+    ports:
+      - "6379:6379"
+    networks:
+      - momo_network
 
-on:
-  push:
-    branches: [ "main", "master" ]
+  # FastAPI 애플리케이션 서버
+  fastapi:
+    image: ganghyoun/moggulmoggul-ai:latest 
+    container_name: momo_fastapi
+    restart: unless-stopped
+    ports:
+      - "8000:8000"
+    env_file:
+      - .env
+    # Redis가 먼저 실행되도록 depends_on 추가
+    depends_on:
+      - redis
+    networks:
+      - momo_network
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/docs"] # /docs 엔드포인트로 변경
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
 
-env:
-  DOCKER_IMAGE_NAME: ganghyoun/moggulmoggul-ai
+  # Celery 워커 서버
+  celery:
+    image: ganghyoun/moggulmoggul-ai:latest
+    container_name: momo_celery
+    restart: unless-stopped
+    command: celery -A app.celery_config.celery_app worker --loglevel=info
+    env_file:
+      - .env
+    # Redis가 먼저 실행되도록 depends_on 추가
+    depends_on:
+      - redis
+    networks:
+      - momo_network
+    healthcheck:
+      test: ["CMD", "celery", "-A", "app.celery_config.celery_app", "inspect", "ping"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
 
-jobs:
-  build-and-deploy:
-    runs-on: ubuntu-latest
-    steps:
-      # 1. 소스 코드 체크아웃
-      - name: Checkout source code
-        uses: actions/checkout@v3
-
-      # 2. Docker Hub 로그인
-      - name: Login to Docker Hub
-        uses: docker/login-action@v2
-        with:
-          username: ${{ secrets.DOCKERHUB_USERNAME }}
-          password: ${{ secrets.DOCKERHUB_TOKEN }}
-
-      # 3. Docker 이미지 빌드 및 Docker Hub에 푸시
-      - name: Build and push Docker image
-        uses: docker/build-push-action@v4
-        with:
-          context: .
-          file: ./Dockerfile
-          push: true
-          tags: |
-            ${{ env.DOCKER_IMAGE_NAME }}:latest
-            ${{ env.DOCKER_IMAGE_NAME }}:${{ github.sha }}
-
-      # 4. EC2에 접속하여 배포 (Git 충돌 해결)
-      - name: Deploy to EC2
-        uses: appleboy/ssh-action@master
-        with:
-          host: ${{ secrets.EC2_HOST }}
-          username: ${{ secrets.EC2_USERNAME }}
-          key: ${{ secrets.EC2_SSH_KEY }}
-          script: |
-            set -ex
-
-            APP_DIR="/home/ubuntu/app/ai"
-            AUTH_REPO_URL="https://x-access-token:${{ secrets.GH_PAT }}@github.com/${{ github.repository }}.git"
-
-            if [ -d "$APP_DIR/.git" ]; then
-              echo "--- Repository exists. Forcefully resetting to latest changes. ---"
-              cd $APP_DIR
-              git fetch origin
-              git reset --hard origin/main
-            else
-              echo "--- Repository does not exist. Cloning new repository. ---"
-              git clone $AUTH_REPO_URL $APP_DIR
-              cd $APP_DIR
-            fi
-            
-            echo "--- Git operation complete. ---"
-            ls -al
-
-            echo "--- Creating .env file ---"
-            echo "OPENAI_API_KEY=${{ secrets.OPENAI_API_KEY }}" > .env
-            echo "OPENAI_PROJECT_ID=${{ secrets.OPENAI_PROJECT_ID }}" >> .env
-            echo "OPENAI_ORGANIZATION_ID=${{ secrets.OPENAI_ORGANIZATION_ID }}" >> .env
-            echo "PGVECTOR_CONNECTION_STRING=postgresql+psycopg2://${{ secrets.RDS_USERNAME }}:${{ secrets.RDS_PASSWORD }}@${{ secrets.RDS_HOSTNAME }}:${{ secrets.RDS_PORT }}/${{ secrets.RDS_DB_NAME }}" >> .env
-            echo "REDIS_URL=redis://${{ secrets.REDIS_HOST }}:${{ secrets.REDIS_PORT }}/0" >> .env
-            echo "AWS_ACCESS_KEY_ID=${{ secrets.AWS_ACCESS_KEY_ID }}" >> .env
-            echo "AWS_SECRET_ACCESS_KEY=${{ secrets.AWS_SECRET_ACCESS_KEY }}" >> .env
-            echo "AWS_S3_BUCKET_NAME=${{ secrets.AWS_S3_BUCKET_NAME }}" >> .env
-            echo "--- .env file created. ---"
-
-            echo "--- Pulling latest Docker image ---"
-            docker pull ${{ env.DOCKER_IMAGE_NAME }}:latest
-
-            echo "--- Starting services with docker-compose ---"
-            docker-compose up -d --no-build
-
-            echo "--- Cleaning up unused Docker images ---"
-            docker image prune -f
-            
-            echo "--- Deployment script finished successfully! ---"
+# 모든 컨테이너가 같은 네트워크를 공유하도록 설정
+networks:
+  momo_network:
+    driver: bridge
