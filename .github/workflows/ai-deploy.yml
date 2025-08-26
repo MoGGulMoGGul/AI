@@ -6,10 +6,8 @@ on:
   push:
     branches: [ "main", "master" ]
 
-# 환경 변수 설정
 env:
   DOCKER_IMAGE_NAME: ganghyoun/moggulmoggul-ai
-
 jobs:
   build-and-deploy:
     runs-on: ubuntu-latest
@@ -30,9 +28,9 @@ jobs:
         uses: docker/build-push-action@v4
         with:
           context: .
-          dockerfile: Dockerfile
+          # 'dockerfile:'을 올바른 옵션인 'file:'로 수정했습니다.
+          file: ./Dockerfile
           push: true
-          # 이미지에 태그 달기 (latest와 git commit 해시)
           tags: |
             ${{ env.DOCKER_IMAGE_NAME }}:latest
             ${{ env.DOCKER_IMAGE_NAME }}:${{ github.sha }}
@@ -45,15 +43,19 @@ jobs:
           username: ${{ secrets.EC2_USERNAME }}
           key: ${{ secrets.EC2_SSH_KEY }}
           script: |
-            # 작업 디렉토리로 이동
             APP_DIR="/home/ubuntu/app/ai"
-            mkdir -p $APP_DIR
-            cd $APP_DIR
+            REPO_URL="https://github.com/${{ github.repository }}.git"
 
-            # git pull을 통해 docker-compose.yml 등 최신 설정 파일 받기
-            git pull origin main
+            # 디렉토리가 없으면 git clone, 있으면 git pull 하도록 수정
+            if [ ! -d "$APP_DIR" ] ; then
+              git clone $REPO_URL $APP_DIR
+              cd $APP_DIR
+            else
+              cd $APP_DIR
+              git pull origin main
+            fi
 
-            # .env 파일 생성 (기존과 동일)
+            # .env 파일 생성 (전체 .env 변수를 포함해야 합니다)
             echo "OPENAI_API_KEY=${{ secrets.OPENAI_API_KEY }}" > .env
             echo "OPENAI_PROJECT_ID=${{ secrets.OPENAI_PROJECT_ID }}" >> .env
             echo "OPENAI_ORGANIZATION_ID=${{ secrets.OPENAI_ORGANIZATION_ID }}" >> .env
@@ -66,8 +68,8 @@ jobs:
             # Docker Hub에서 최신 이미지 받아오기
             docker pull ${{ env.DOCKER_IMAGE_NAME }}:latest
 
-            # docker-compose로 서비스 재시작 (빌드 없이)
+            # docker-compose로 서비스 재시작
             docker-compose up -d --no-build
 
-            # 사용하지 않는 이전 Docker 이미지 정리 (선택 사항)
+            # 사용하지 않는 이전 Docker 이미지 정리
             docker image prune -f
