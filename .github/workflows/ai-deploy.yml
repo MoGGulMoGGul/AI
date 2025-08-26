@@ -7,7 +7,7 @@ on:
     branches: [ "main", "master" ]
 
 env:
-  DOCKER_IMAGE_NAME: ganghyoun/moggulmoggul-ai
+  DOCKER_IMAGE_NAME: ganghyoun/moggulmoggul-ai 
 
 jobs:
   build-and-deploy:
@@ -42,8 +42,8 @@ jobs:
           host: ${{ secrets.EC2_HOST }}
           username: ${{ secrets.EC2_USERNAME }}
           key: ${{ secrets.EC2_SSH_KEY }}
-          # 타임아웃 시간을 30분으로 늘립니다.
-          timeout: 30m
+          # 타임아웃 시간을 60분으로 늘립니다.
+          timeout: 60m
           script: |
             set -ex
 
