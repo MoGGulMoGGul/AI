@@ -7,7 +7,7 @@ on:
     branches: [ "main", "master" ]
 
 env:
-  DOCKER_IMAGE_NAME: ganghyoun/moggulmoggul-ai
+  DOCK_IMAGE_NAME: ganghyoun/moggulmoggul-ai
 
 jobs:
   build-and-deploy:
@@ -35,7 +35,7 @@ jobs:
             ${{ env.DOCKER_IMAGE_NAME }}:latest
             ${{ env.DOCKER_IMAGE_NAME }}:${{ github.sha }}
 
-      # 4. EC2에 접속하여 배포 (PAT 인증 방식으로 수정)
+      # 4. EC2에 접속하여 배포 (PAT 인증 방식 수정)
       - name: Deploy to EC2
         uses: appleboy/ssh-action@master
         with:
@@ -44,16 +44,20 @@ jobs:
           key: ${{ secrets.EC2_SSH_KEY }}
           script: |
             APP_DIR="/home/ubuntu/app/ai"
-            # PAT를 이용한 HTTPS 주소 방식으로 변경
-            REPO_URL="https://github.com/${{ github.repository }}.git"
-            
-            # 디렉토리가 없으면 git clone, 있으면 git pull
-            if [ ! -d "$APP_DIR" ] ; then
-              git clone https://${{ github.actor }}:${{ secrets.GH_PAT }}@github.com/${{ github.repository }}.git $APP_DIR
+            # PAT 인증을 위한 URL (x-access-token 방식)
+            AUTH_REPO_URL="https://x-access-token:${{ secrets.GH_PAT }}@github.com/${{ github.repository }}.git"
+
+            # .git 디렉토리 존재 여부로 저장소 상태를 더 정확하게 확인
+            if [ -d "$APP_DIR/.git" ]; then
+              echo "Repository exists. Pulling latest changes."
               cd $APP_DIR
+              git pull $AUTH_REPO_URL main
             else
+              echo "Repository does not exist. Cloning."
+              # 실패했던 경우를 대비해 기존 디렉토리 정리 후 클론
+              rm -rf $APP_DIR
+              git clone $AUTH_REPO_URL $APP_DIR
               cd $APP_DIR
-              git pull https://${{ github.actor }}:${{ secrets.GH_PAT }}@github.com/${{ github.repository }}.git main
             fi
 
             # .env 파일 생성
