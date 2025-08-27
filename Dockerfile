@@ -20,7 +20,9 @@ ENV PATH="/opt/venv/bin:$PATH"
 # requirements.txt 복사 및 의존성 설치 (캐시 활용을 위해 분리)
 COPY requirements.txt .
 RUN pip install --upgrade pip && \
-    pip install --no-cache-dir -r requirements.txt
+    pip install --no-cache-dir \
+    --extra-index-url https://download.pytorch.org/whl/cpu \
+    -r requirements.txt
 
 # Playwright 브라우저 설치
 RUN python -m playwright install chromium
