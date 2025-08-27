@@ -25,19 +25,16 @@ def upload_to_s3(data, file_extension):
             region_name='ap-northeast-2'
         )
         bucket_name = os.getenv("AWS_S3_BUCKET_NAME")
-        # 파일 이름을 유니크하게 생성
         file_name = f"thumbnails/{uuid.uuid4()}.{file_extension}"
 
-        # 메모리 상의 데이터(bytes)를 바로 업로드
         s3.put_object(
             Bucket=bucket_name,
             Key=file_name,
             Body=data,
-            ContentType=f'image/{file_extension}',
-            ACL='public-read' # 파일을 공개적으로 읽을 수 있도록 설정
+            ContentType=f'image/{file_extension}'
+            # ACL='public-read' 옵션을 삭제하여 버킷의 기본 권한 설정을 따르도록 합니다.
         )
         
-        # 업로드된 파일의 URL 반환
         return f"https://{bucket_name}.s3.ap-northeast-2.amazonaws.com/{file_name}"
 
     except NoCredentialsError:
