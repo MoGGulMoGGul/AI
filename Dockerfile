@@ -17,15 +17,19 @@ RUN python -m venv /opt/venv
 # 가상 환경의 pip를 사용하도록 환경 변수 설정
 ENV PATH="/opt/venv/bin:$PATH"
 
-# requirements.txt 복사 및 의존성 설치 (캐시 활용을 위해 분리)
+# requirements.txt 복사 및 의존성 설치
 COPY requirements.txt .
 RUN pip install --upgrade pip && \
     pip install --no-cache-dir \
     --extra-index-url https://download.pytorch.org/whl/cpu \
     -r requirements.txt
 
-# Playwright 브라우저 설치
+# --- 수정된 부분 ---
+# Playwright 브라우저를 설치할 경로를 환경 변수로 지정합니다.
+ENV PLAYWRIGHT_BROWSERS_PATH="/ms-playwright"
+# 지정된 경로에 브라우저를 설치합니다.
 RUN python -m playwright install chromium
+# --------------------
 
 # =====================================================================
 # Stage 2: Final Base Image - 실제 실행을 위한 최종 이미지
@@ -43,7 +47,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 
 # Builder 단계에서 설치한 가상 환경 복사
 COPY --from=builder /opt/venv /opt/venv
-# Builder 단계에서 설치한 Playwright 브라우저 복사
+# Builder 단계에서 설치한 Playwright 브라우저 복사 (이제 이 경로에 파일이 존재합니다)
 COPY --from=builder /ms-playwright /ms-playwright
 
 # 환경 변수 설정
