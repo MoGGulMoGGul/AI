@@ -1,12 +1,12 @@
 version: '3.8'
 
 services:
-  # 기본 이미지를 빌드하고 태그를 지정하는 서비스
-  # 다른 서비스들이 이 이미지를 기반으로 빌드됩니다.
+  # 1. 'base' 서비스를 추가하여 공통 이미지를 먼저 빌드합니다.
+  #    이 서비스는 실행되지 않고 빌드 역할만 합니다.
   base:
     build:
       context: .
-      dockerfile: Dockerfile.base
+      dockerfile: Dockerfile # 기본 Dockerfile을 사용하여 ai-base:latest 이미지를 생성합니다.
     image: ai-base:latest
 
   db:
@@ -31,14 +31,14 @@ services:
     restart: always
 
   web:
-    # base 이미지가 먼저 빌드되도록 설정
+    # 2. 'base' 서비스에 대한 의존성을 추가하여 빌드 순서를 보장합니다.
     depends_on:
       - base
       - db
       - redis
     build:
       context: .
-      # web 서비스 전용 Dockerfile 지정
+      # 3. 'Dockerfile.base' 대신 'Dockerfile.web'을 사용하도록 변경합니다.
       dockerfile: Dockerfile.web
     container_name: web
     env_file:
@@ -48,14 +48,11 @@ services:
     restart: always
 
   celery:
-    # base 이미지가 먼저 빌드되도록 설정
     depends_on:
       - base
-      - web
       - redis
     build:
       context: .
-      # celery 서비스 전용 Dockerfile 지정
       dockerfile: Dockerfile.celery
     container_name: celery
     env_file:

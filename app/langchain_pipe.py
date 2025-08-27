@@ -6,7 +6,6 @@ from langchain.text_splitter import RecursiveCharacterTextSplitter
 from langchain_community.vectorstores import PGVector
 from langchain_community.embeddings import OpenAIEmbeddings
 
-from app.elasticsearch_client import index_tip_document
 from app.ai_utils import summarize_and_tag
 
 load_dotenv()
@@ -33,12 +32,6 @@ def run_langchain_pipeline(raw_text: str):
         summary = summary_and_tags["summary"]
         title = summary_and_tags["title"]
         tag_list = summary_and_tags["tags"]
-        
-        # Elasticsearch 색인 시도 (실패해도 무시)
-        try:
-            index_tip_document(text=raw_text, summary=summary, tags=tag_list)
-        except Exception as e:
-            print(f"[Elasticsearch 저장 중 오류 발생, 그러나 계속 진행] {e}")
 
     except Exception as e:
         print(f"[AI 요약/태그 생성 중 오류] {e}")

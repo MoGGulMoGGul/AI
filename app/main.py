@@ -2,8 +2,6 @@
 import asyncio
 import sys
 
-from app.elasticsearch_client import search_by_tag, es
-
 print("="*50)
 print(f"스크립트 시작. 현재 플랫폼: {sys.platform}")
 print(f"초기 asyncio 정책: {asyncio.get_event_loop_policy().__class__.__name__}")
@@ -27,58 +25,16 @@ from app.image_handler import process_image_tip
 from app.video_handler import get_combined_transcript
 from app.text_filter import clean_text
 from app.langchain_pipe import run_langchain_pipeline
-from app.qa_api import router as qa_router
 from app.summarizer import process_url_task
 from celery.result import AsyncResult
 from app.celery_config import celery_app
 from app.ai_utils import summarize_and_tag
-from app.elasticsearch_client import search_by_tag
 from app.thumbnail_handler import generate_thumbnail
 
 app = FastAPI()
-app.include_router(qa_router)
 
 class URLRequest(BaseModel):
     url: str
-
-@app.post("/extract")
-def extract(request: URLRequest):
-    text = extract_text_from_url(request.url)
-    return {"text": text}
-
-@app.post("/extract-image-tip")
-async def extract_image_tip(file: UploadFile = File(...)):
-    with open(f"temp_{file.filename}", "wb") as f:
-        content = await file.read()
-        f.write(content)
-    return process_image_tip(f"temp_{file.filename}")
-
-class VideoRequest(BaseModel):
-    url: str
-
-# 비디오 URL에서 자막 추출, 정리, 요약 및 태그 생성
-@app.post("/extract-video-tip")
-def extract_video_tip(request: VideoRequest):
-    full_text = get_combined_transcript(request.url)
-    cleaned_text = clean_text(full_text)
-    summary_and_tags = summarize_and_tag(cleaned_text)
-    return {
-        "raw_text": full_text,
-        "cleaned_text": cleaned_text,
-        "summary_and_tags": summary_and_tags
-    }
-
-class IndexRequest(BaseModel):
-    text: str
-
-@app.post("/index-tip")
-def index_tip(request: IndexRequest):
-    out = run_langchain_pipeline(request.text)
-    return {
-        "message": f"{out['chunks']} chunks indexed",
-        "title": out["title"],
-        "tags": out["tags"]
-    }
 
 @app.post("/async-index/")
 def async_index(request: URLRequest):
@@ -90,15 +46,6 @@ def get_status(task_id: str):
     result = AsyncResult(task_id, app=celery_app)
     return {"status": result.status, "result": result.result if result.ready() else None}
 
-@app.get("/search-tag")
-def search_tag(tag: str):
-    """Elasticsearch 태그 검색"""
-    # es 클라이언트가 연결되지 않았으면 에러 메시지 반환
-    if not es:
-        raise HTTPException(status_code=503, detail="Elasticsearch service is not available.")
-    
-    hits = search_by_tag(tag)
-    return [hit["_source"] for hit in hits]
 
 # 요약 결과 조회 엔드포인트 (Spring Boot에서 호출)
 @app.get("/summary-result/{task_id}")
@@ -141,32 +88,3 @@ async def create_thumbnail(request: URLRequest):
         return RedirectResponse(url=thumbnail_data)
 
     return Response(content=thumbnail_data, media_type="image/png")
-
-
-# taskkill /F /IM python.exe
-# uvicorn app.main:app
-
-# 첫 실행(또는 이미지 새로 빌드가 필요할 때)
-# docker compose up -d --build
-
-#실행(빌드 없이 전부 백그라운드로)
-
-# docker compose up -d --no-build
-
-#잠깐 멈췄다가 다시 켜고 싶을 때
-
-# docker compose stop     # 컨테이너 '중지' (네트워크/볼륨/이미지 유지)
-# docker compose start    # 다시 시작
-
-# 컨테이너를 아예 내려서 깨끗이 재생성하고 싶을 때
-
-# docker compose down     # 컨테이너 + 네트워크 제거(볼륨은 그대로)
-
-# 완전 초기화(데이터까지 삭제, 주의!):
-
-# docker compose down -v
-
-# git status
-# git add -A
-# git commit -m "메시지"
-# git push origin <브랜치명>   # 예: main

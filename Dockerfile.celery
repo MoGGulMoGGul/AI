@@ -1,17 +1,9 @@
-# Dockerfile.celery
 # 이 Dockerfile은 Celery 워커 서비스를 위한 이미지를 생성합니다.
-# 웹 서비스와 마찬가지로 base 이미지를 활용하여 빌드 시간을 단축합니다.
-FROM ai-base:latest as base
+# 웹 서비스와 마찬가지로 ai-base:latest 이미지를 활용하여 빌드 시간을 단축합니다.
+FROM ai-base:latest
 
-# 작업 디렉토리 설정
-WORKDIR /app
-
-# 기본 이미지로부터 모든 의존성을 복사합니다.
-COPY --from=base /usr/local/lib/python3.10/site-packages/ /usr/local/lib/python3.10/site-packages/
-COPY --from=base /root/.cache/ /root/.cache/
-
-# 애플리케이션 코드 복사
+# 작업 디렉토리에 애플리케이션 코드를 복사합니다.
 COPY ./app /app/app
 
-# Celery 워커 실행
-CMD ["celery", "-A", "app.celery_worker.celery", "worker", "--loglevel=info"]
+# Celery 워커를 실행합니다. (올바른 Celery 앱 인스턴스를 사용하도록 수정)
+CMD ["celery", "-A", "app.celery_config.celery_app", "worker", "--loglevel=info"]
