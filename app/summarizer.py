@@ -121,7 +121,7 @@ def process_url_task(url: str, tip_id: int):
 
     try:
         # 환경 변수에서 읽어온 스프링 부트 서버의 공인 IP 주소를 사용합니다.
-        callback_url = f"http://{spring_boot_public_ip}:8080/api/internal/tips/update-from-ai"
+        callback_url = f"http://{spring_boot_public_ip}:8080/api/tips/internal/tips/update-from-ai"
 
         payload = {
             "tipNo": tip_id,
