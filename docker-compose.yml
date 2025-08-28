@@ -57,6 +57,8 @@ services:
     container_name: celery
     env_file:
       - .env
+    environment:
+      - SPRING_BOOT_PUBLIC_IP=${SPRING_BOOT_PUBLIC_IP}
     restart: always
 
 volumes:

@@ -114,10 +114,14 @@ def process_url_task(url: str, tip_id: int):
         }
 
     # AI 작업 완료 후 Spring Boot 서버로 콜백 전송
+    spring_boot_public_ip = os.getenv("SPRING_BOOT_PUBLIC_IP")
+    if not spring_boot_public_ip:
+        print(f"[에러] 콜백 실패: SPRING_BOOT_PUBLIC_IP 환경 변수가 설정되지 않았습니다. (tip_id: {tip_id})")
+        return result
+
     try:
-        # IP 주소 대신 'web'이라는 서비스 이름을 사용합니다.
-        # Docker 내부 네트워크에서 'web'은 web 컨테이너를 가리킵니다.
-        callback_url = "http://web:8080/api/internal/tips/update-from-ai"
+        # 환경 변수에서 읽어온 스프링 부트 서버의 공인 IP 주소를 사용합니다.
+        callback_url = f"http://{spring_boot_public_ip}:8080/api/internal/tips/update-from-ai"
 
         payload = {
             "tipNo": tip_id,
