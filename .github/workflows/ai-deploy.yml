@@ -65,13 +65,13 @@ jobs:
             echo "AWS_SECRET_ACCESS_KEY=${{ secrets.AWS_SECRET_ACCESS_KEY }}" >> .env
             echo "AWS_S3_BUCKET_NAME=${{ secrets.AWS_S3_BUCKET_NAME }}" >> .env
 
-            # Spring Boot 서버의 공인 IP 주소를 환경 변수로 설정
-            export SPRING_BOOT_PUBLIC_IP=${{ secrets.SPRING_BOOT_PUBLIC_IP }}
-
             # .env 파일에 RDS 관련 환경 변수 추가
             echo "POSTGRES_DB=${{ secrets.RDS_DB_NAME }}" >> .env
             echo "POSTGRES_USER=${{ secrets.RDS_USERNAME }}" >> .env # RDS_USERNAME Secret을 사용해야 합니다.
             echo "POSTGRES_PASSWORD=${{ secrets.RDS_PASSWORD }}" >> .env
+
+            # .env 파일에 Spring Boot 서버의 공인 IP 주소 추가
+            echo "SPRING_BOOT_PUBLIC_IP=${{ secrets.SPRING_BOOT_PUBLIC_IP }}" >> .env
 
             # 3. 백그라운드에서 배포 스크립트 실행
             # nohup: SSH 연결이 끊겨도 계속 실행
