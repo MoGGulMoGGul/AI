@@ -44,8 +44,9 @@ def upload_to_s3(data, file_extension):
         return None
 
 
+# Celery Task
 @celery_app.task(name="app.summarizer.process_url_task")
-def process_url_task(url: str, tip_id: int): # Spring Boot로부터 tip_id를 받음
+def process_url_task(url: str, tip_id: int):
     thumbnail_url = None
     try:
         thumbnail_raw_data, thumb_type = generate_thumbnail(url)
@@ -112,10 +113,11 @@ def process_url_task(url: str, tip_id: int): # Spring Boot로부터 tip_id를 �
             "thumbnail_url": None
         }
 
-    # --- AI 작업 완료 후 Spring Boot 서버로 콜백 전송 ---
+    # AI 작업 완료 후 Spring Boot 서버로 콜백 전송
     try:
-        spring_boot_ip = os.getenv("SPRING_BOOT_IP", "localhost")
-        callback_url = f"http://{spring_boot_ip}:8080/api/internal/tips/update-from-ai"
+        # IP 주소 대신 'web'이라는 서비스 이름을 사용합니다.
+        # Docker 내부 네트워크에서 'web'은 web 컨테이너를 가리킵니다.
+        callback_url = "http://web:8080/api/internal/tips/update-from-ai"
 
         payload = {
             "tipNo": tip_id,
@@ -124,12 +126,15 @@ def process_url_task(url: str, tip_id: int): # Spring Boot로부터 tip_id를 �
             "tags": result.get("tags", []),
             "thumbnailUrl": result.get("thumbnail_url")
         }
-
+        
+        print(f"콜백 요청 시작: URL={callback_url}, Payload={payload}")
         response = requests.post(callback_url, json=payload, timeout=15)
         response.raise_for_status()
-        print(f"콜백 성공: tip_id {tip_id}")
+        print(f"콜백 성공: tip_id {tip_id}, 상태 코드: {response.status_code}")
 
     except requests.exceptions.RequestException as e:
-        print(f"[에러] 콜백 실패: tip_id {tip_id}: {e}")
+        print(f"[에러] 콜백 요청 실패: tip_id {tip_id}")
+        print(f" - 대상 URL: {e.request.url if e.request else 'N/A'}")
+        print(f" - 오류 내용: {e}")
     
     return result
