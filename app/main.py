@@ -35,12 +35,10 @@ app = FastAPI()
 
 class URLRequest(BaseModel):
     url: str
-    tip_id: int # tip_id 필드 추가
 
 @app.post("/async-index/")
 def async_index(request: URLRequest):
-    # process_url_task에 url과 tip_id를 함께 전달
-    task = process_url_task.delay(request.url, request.tip_id)
+    task = process_url_task.delay(request.url)
     return {"task_id": task.id}
 
 @app.get("/task-status/{task_id}")
