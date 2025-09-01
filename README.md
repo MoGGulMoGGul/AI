@@ -69,11 +69,13 @@
 
 | 분류 | 사용 기술 | 설명 |
 |---|---|---|
-| **IDE** | Visual Studio Code / PyCharm | Python 개발 및 디버깅에 최적화된 통합 개발 환경 |
+| **IDE** | Visual Studio Code | Python 개발 및 디버깅에 최적화된 통합 개발 환경 |
 | **패키지 매니저** | Pip | `requirements.txt`를 통해 Python 프로젝트 의존성 관리 |
 | **컨테이너화** | Docker, Docker Compose | 개발 환경을 컨테이너화하여 일관된 배포 및 실행 환경 보장 |
 | **버전 관리** | Git + GitHub | 소스 코드 버전 관리 및 팀 협업을 위한 플랫폼 |
-| **테스트 도구** | Postman, Swagger UI | FastAPI로 구축된 API 엔드포인트 테스트 및 명세 확인 |
+| **CI/CD** | GitHub Actions | main 브랜치 push 시 Docker 이미지를 빌드하여 EC2에 자동 배포 |
+| **배포** | AWS EC2 | Docker 컨테이너를 이용한 서비스 애플리케이션 배포 환경 |
+| **테스트 도구** | Postman | FastAPI로 구축된 API 엔드포인트 테스트 및 명세 확인 |
 | **런타임 환경** | Python 3.10+ | AI 서비스 애플리케이션 실행 환경 |
 | **인프라 관리** | AWS Console | EC2, RDS, S3 등 클라우드 인프라 구성 및 모니터링 |
 
