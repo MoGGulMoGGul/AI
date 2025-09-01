@@ -1,155 +1,166 @@
-# AI
-[모꿀모꿀] 모꿀모꿀 서비스의 AI 레포지토리
+# 모꿀모꿀 (MoggulMoggul) - AI 서비스
+![header](https://capsule-render.vercel.app/api?type=cylinder&color=EAC149&height=130&section=header&text=MOGGUL-MOGGUL%20AI&fontSize=55&animation=scaleIn&fontColor=FFF)
 
-- 사용언어 Python
-- install 명령어 
-```
-    pip install -r requirements.txt
-```
+<p align="center">
+  <img src="https://img.shields.io/badge/python-3776AB.svg?&style=for-the-badge&logo=python&logoColor=white"/>
+  <img src="https://img.shields.io/badge/fastapi-%23009688.svg?&style=for-the-badge&logo=fastapi&logoColor=white"/>
+  <img src="https://img.shields.io/badge/docker-%232496ED.svg?&style=for-the-badge&logo=docker&logoColor=white"/>
+  <img src="https://img.shields.io/badge/celery-%2337814A.svg?&style=for-the-badge&logo=celery&logoColor=white"/>
+  <br>
+  <img src="https://img.shields.io/badge/openai-%23412991.svg?&style=for-the-badge&logo=openai&logoColor=white"/>
+  <img src="https://img.shields.io/badge/langchain-%232D69A4.svg?&style=for-the-badge&logo=langchain&logoColor=white"/>
+  <img src="https://img.shields.io/badge/pytorch-%23EE4C2C.svg?&style=for-the-badge&logo=pytorch&logoColor=white"/>
+  <img src="https://img.shields.io/badge/playwright-%232EAD33.svg?&style=for-the-badge&logo=playwright&logoColor=white"/>
+  <br>
+  <img src="https://img.shields.io/badge/postgresql-%234169E1.svg?&style=for-the-badge&logo=postgresql&logoColor=white"/>
+  <img src="https://img.shields.io/badge/redis-%23DC382D.svg?&style=for-the-badge&logo=redis&logoColor=white"/>
+  <br>
+  <img src="https://img.shields.io/badge/amazon s3-%23569A31.svg?&style=for-the-badge&logo=amazons3&logoColor=white"/>
+  <img src="https://img.shields.io/badge/Amazon EC2-%23FF9900.svg?&style=for-the-badge&logo=amazon-ec2&logoColor=white"/>
+  <img src="https://img.shields.io/badge/Amazon RDS-%23527FFF.svg?&style=for-the-badge&logo=amazon-rds&logoColor=white"/>
+  <img src="https://img.shields.io/badge/Amazon ElastiCache-%23FF9900.svg?&style=for-the-badge&logo=amazon-elasticache&logoColor=white"/>
+  <br>
+</p>
 
-- .env 예시
-```
-    # .env.example
-    OPENAI_API_KEY=your-api-key
-    DATABASE_URL=your-db-url
-```
+---
 
------------
+----
+## 프로젝트 개요
+웹페이지, 유튜브, 이미지 등 다양한 형태의 온라인 콘텐츠를 자동으로 분석하여 제목, 요약, 태그, 썸네일을 생성하고, 처리된 데이터를 백엔드 서버에 제공하는 비동기 콘텐츠 처리 AI 서비스 입니다.
 
-taskkill /F /IM python.exe
-uvicorn app.main:app
+## 팀원 소개
+| **이름** | **역할**        | **GitHub**                   |
+|--------|---------------|------------------------------|
+| 구강현    | 백엔드 / 배포 / AI | https://github.com/GangHyoun |
+| 송보민    | 백엔드 / AI      | https://github.com/Songbomin |
+| 정혜지    | 프론트엔드 / 디자인        | https://github.com/heartggs  |
 
-docker exec -it momo_postgres psql -U user -d momo
--- ① pgvector 확장 설치 확인
-\dx
+----
 
--- ② tip_data 테이블 생성 여부 확인
-\dt
+## 프로젝트 구성
 
--- ③ 데이터 유무 확인 (없어도 됨)
-SELECT * FROM tip_data;
+### 주요 기능
+- **비동기 콘텐츠 처리**: Celery를 사용하여 URL(웹페이지, 유튜브, 이미지)을 비동기적으로 처리하여 메인 서버의 부하를 줄입니다.
+- **다양한 콘텐츠 요약 및 태깅**:
+    - **웹페이지**: 동적/정적 웹페이지의 본문을 추출(`Playwright`, `BeautifulSoup`)하고 `OpenAI`를 통해 요약 및 태그를 생성합니다.
+    - **유튜브**: 영상의 자막과 음성을 `Whisper`로 추출하여 텍스트로 변환한 후 요약 및 태그를 생성합니다.
+    - **이미지**: `EasyOCR`로 이미지 내 텍스트를 추출(OCR)하여 요약 및 태그를 생성합니다.
+- **썸네일 자동 생성**:
+    - `Playwright`를 사용하여 웹페이지의 스크린샷을 찍거나, 유튜브/이미지 URL에서 직접 썸네일을 추출합니다.
+    - 생성된 썸네일은 **AWS S3**에 업로드되어 URL로 관리됩니다.
+- **벡터 데이터베이스 활용**: LangChain 파이프라인을 통해 처리된 텍스트를 벡터로 변환하고 **PGVector**에 저장하여 추후 검색 및 활용 가능성을 열어둡니다.
 
- ️ 전체 SQL 코드 정리
-1. 현재 데이터베이스에 있는 테이블 목록 확인
+## 툴체인 & 프레임워크
 
-\dt
+### 프레임워크
 
-PostgreSQL의 메타 명령어
-결과: langchain_pg_collection, langchain_pg_embedding, tip_data 등
+| 분류 | 사용 기술 | 설명 |
+|---|---|---|
+| **언어** | Python 3.10+ | AI 모델링 및 비동기 처리를 위한 주력 개발 언어 |
+| **웹 프레임워크** | FastAPI | 비동기 API 서버를 구축하여 높은 성능과 빠른 응답 속도 보장 |
+| **비동기 작업 큐** | Celery with Redis | URL 콘텐츠 처리 작업을 비동기적으로 실행하여 메인 서버 부하 감소 |
+| **AI/ML** | OpenAI, LangChain | 텍스트 요약, 태그 생성 등 자연어 처리 파이프라인 구축 |
+| **AI/ML** | Whisper, EasyOCR | 유튜브 음성 및 이미지 내 텍스트를 추출하여 데이터 소스 확장 |
+| **웹 스크래핑** | Playwright, BeautifulSoup | 동적/정적 웹페이지의 본문 콘텐츠를 정확하게 추출 |
+| **데이터베이스** | PostgreSQL with PGVector | 텍스트 벡터 데이터를 저장하여 향후 검색 및 AI 기능 확장성 확보 |
+| **클라우드 서비스** | AWS S3 | 생성된 썸네일 이미지를 안정적으로 저장하고 URL로 관리 |
 
-2. 테이블 구조(컬럼 정보) 확인
-\d langchain_pg_embedding
+### 툴체인
 
-각 컬럼의 이름, 타입 확인 (예: collection_id, embedding, document, ...)
+| 분류 | 사용 기술 | 설명 |
+|---|---|---|
+| **IDE** | Visual Studio Code / PyCharm | Python 개발 및 디버깅에 최적화된 통합 개발 환경 |
+| **패키지 매니저** | Pip | `requirements.txt`를 통해 Python 프로젝트 의존성 관리 |
+| **컨테이너화** | Docker, Docker Compose | 개발 환경을 컨테이너화하여 일관된 배포 및 실행 환경 보장 |
+| **버전 관리** | Git + GitHub | 소스 코드 버전 관리 및 팀 협업을 위한 플랫폼 |
+| **테스트 도구** | Postman, Swagger UI | FastAPI로 구축된 API 엔드포인트 테스트 및 명세 확인 |
+| **런타임 환경** | Python 3.10+ | AI 서비스 애플리케이션 실행 환경 |
+| **인프라 관리** | AWS Console | EC2, RDS, S3 등 클라우드 인프라 구성 및 모니터링 |
 
-\d langchain_pg_collection
+---
 
-3. LangChain이 만든 컬렉션 이름 확인
+## 프로젝트 프로그램 설치방법
 
-SELECT * FROM langchain_pg_collection;
+### 사전 요구사항
+- **Docker** 및 **Docker Compose** 설치
+- **AWS S3** 버킷 및 IAM 자격 증명
+- **OpenAI API Key**
+- **PostgreSQL** 데이터베이스 (로컬 또는 원격)
 
-컬럼명     설명
-name    컬렉션 이름 (tip_data 등)
-uuid    이 컬렉션을 식별하는 LangChain 내부용 ID
+### 설치 과정
+1. **프로젝트 클론**
+   ```bash
+   git clone [https://github.com/your-username/moggulmoggul-ai.git](https://github.com/your-username/moggulmoggul-ai.git)
+   cd moggulmoggul-ai
+    ```
+2. **.env 파일 설정**
+   # OpenAI API 설정
+    ```
+    OPENAI_API_KEY="sk-..."
+    ```
 
-4. 컬렉션 ID별로 벡터(문서) 저장 확인
-🔹 전체 문서 확인
+    # PostgreSQL 연결 정보 (Docker Compose 내부 네트워크 기준)
+    ```
+    POSTGRES_DB=momo
+    POSTGRES_USER=user
+    POSTGRES_PASSWORD=p1234
+    PGVECTOR_CONNECTION_STRING=postgresql+psycopg2://user:p1234@db:5432/momo
+    ```
 
-SELECT document FROM langchain_pg_embedding LIMIT 5;
+    # Redis 연결 정보 (Docker Compose 내부 네트워크 기준)
+    ```
+    REDIS_URL=redis://redis:6379/0
+    CELERY_BROKER_URL=redis://redis:6379/0
+    CELERY_RESULT_BACKEND=redis://redis:6379/0
+    ```
 
-🔹 특정 컬렉션(tip_data)에 해당하는 문서만 보기
-(컬렉션 UUID가 예: 6e30ae0f-49fd-4ddc-93f5-f5650a07ff1c일 때)
+    # AWS S3 자격 증명
+    ```
+    AWS_ACCESS_KEY_ID="your_access_key"
+    AWS_SECRET_ACCESS_KEY="your_secret_key"
+    AWS_S3_BUCKET_NAME="your_bucket_name"
+    ```
 
-SELECT document FROM langchain_pg_embedding
-WHERE collection_id = '6e30ae0f-49fd-4ddc-93f5-f5650a07ff1c';
+3. **Docker 이미지 빌드 및 컨테이너 실행**
+    ```
+    docker-compose up --build
+    ```
 
-5. 저장된 임베딩 벡터 수 세기
+----
 
-SELECT COUNT(*) FROM langchain_pg_embedding;
-→ 벡터가 몇 개 저장되었는지 확인
+### 프로그램 사용법
+1. **애플리케이션 실행 확인**
+<br/>
+Docker 컨테이너가 정상적으로 실행되면, FastAPI 웹 서버는 http://localhost:8000에서 접근할 수 있습니다.
 
-6. 수동 생성된 tip_data 테이블 확인
+2. **API 엔드 포인트**
+- 비동기 요약 작업 생성: `POST` `/async-index/`
+    - Request Body: `{"url": "요약할 URL"}`
+    - Response: `{"task_id": "생성된 작업 ID"}`
 
-SELECT * FROM tip_data;
+- 작업 상태 및 결과 조회: `GET` `/summary-result/{task_id}`
+    - Response (완료 시):
+        ```
+        {
+            "summary": "생성된 요약 내용",
+            "title": "생성된 제목",
+            "tags": ["태그1", "태그2"],
+            "thumbnail_url": "S3에 업로드된 썸네일 URL"
+        }
+        ```
+    - Response (진행 중) : `HTTP 202 Accepted` 상태 코드와 함께 진행 중 메시지 반환
+- 썸네일 생성: `POST` `/thumbnail`
 
-❗ LangChain이 사용하는 테이블은 아님 (도커 초기 설정에서 생성한 샘플 테이블)
+    - Request Body: `{"url": "썸네일 생성할 URL"}`
 
-보너스: 데이터 삭제용
+    - Response: 생성된 썸네일 이미지(PNG) 또는 유튜브 썸네일 URL로 리다이렉트
 
--- 특정 컬렉션에 해당하는 모든 벡터 삭제
-DELETE FROM langchain_pg_embedding
-WHERE collection_id = '6e30ae0f-49fd-4ddc-93f5-f5650a07ff1c';
+API 테스트는 Postman과 같은 도구를 사용하거나 FastAPI에서 제공하는 Swagger UI (http://localhost:8000/docs)를 통해 할 수 있습니다.
 
--- 컬렉션 자체 삭제
-DELETE FROM langchain_pg_collection
-WHERE uuid = '6e30ae0f-49fd-4ddc-93f5-f5650a07ff1c';
+---
 
------------------
-
-# 가상환경 생성
-```
-python -m venv .venv
-```
-
-# 가상환경 활성화 (Windows)
-```
-.\.venv\Scripts\activate
-```
-
-# 의존성 설치
-```
-pip install --upgrade pip
-pip install -r requirements.txt
-```
-
-# ffmpeg 설치 (YouTube 오디오 추출용)
-- 관리자 권한 PowerShell에서 실행
-```
-Set-ExecutionPolicy Bypass -Scope Process -Force; `
-[System.Net.ServicePointManager]::SecurityProtocol = `
-[System.Net.ServicePointManager]::SecurityProtocol -bor 3072; `
-iex ((New-Object System.Net.WebClient).DownloadString('https://community.chocolatey.org/install.ps1'))
-
-choco install ffmpeg -y
-```
-
-- 경로 확인 명령어
-```
-Get-Command ffmpeg
-```
-
-- 수동 경로 등록 필요
-    - video_handler.py에서 44번째 줄 'ffmpeg_location': 'C:/ProgramData/chocolatey/bin',
-    - C:/ProgramData/chocolatey/bin 이 부분 개인 경로 등록 필요
-
-
-# docker 설치 명령어 
-- docker 전체 서비스 실행
-```
-docker-compose up -d
-```
-
-- docker 접속 명령어
-```
-docker exec -it momo_postgres psql -U user -d momo
-```
-
-- docker desktop에서 postgreSQL 접속 명령어
-```
-psql -U user -d momo 
-```
-
-# FastAPI 서버 실행
-```
-uvicorn app.main:app
-```
-
-# Celery 워커 실행 (Windows 안정화 옵션 포함)
-```
-celery -A app.celery_config.celery_app worker --loglevel=info --pool=solo
-```
-
-# 테스트 주소
-- http://127.0.0.1:8000/docs
-- /async-index/ : 텍스트, 이미지, 영상 한 번에 가능함
-
+## 프로젝트 URL
+- **Main** : https://github.com/MoGGulMoGGul
+- **FrontEnd** : https://github.com/MoGGulMoGGul/Frontend
+- **BackEnd** : https://github.com/MoGGulMoGGul/Backend
+- **AI** : https://github.com/MoGGulMoGGul/AI/tree/main
