@@ -21,27 +21,39 @@ def extract_text_from_url(url: str):
                 page = browser.new_page()
                 page.goto(url, timeout=20000, wait_until='domcontentloaded')
 
-                # 네이버 블로그의 메인 콘텐츠가 담긴 iframe을 찾습니다.
-                main_frame = page.frame(name="mainFrame")
-                if main_frame:
-                    # iframe 내부의 HTML 콘텐츠를 가져옵니다.
-                    content_html = main_frame.content()
-                    soup = BeautifulSoup(content_html, 'html.parser')
-                    
-                    # 블로그 본문 내용이 주로 담겨있는 영역을 특정합니다.
-                    main_content = soup.find('div', class_='se-main-container')
+                # 여러 후보 선택자를 시도하여 가장 적합한 본문 영역을 찾음
+                content_selectors = [
+                    "div.se-main-container",  # 최신 스마트에디터 원
+                    "div.post_content",        # 구버전 스마트에디터
+                    "div.blog_content",        # 또 다른 구버전
+                    "div.article",             # 일반적인 블로그 아티클
+                    "body"                     # 최종 폴백: body 전체
+                ]
+                
+                content_html = page.content()
+                soup = BeautifulSoup(content_html, 'html.parser')
+                text = ""
+
+                for selector in content_selectors:
+                    if selector == "body":
+                        # body 태그는 마지막 시도
+                        text = soup.body.get_text(separator='\n', strip=True)
+                        break
+
+                    main_content = soup.select_one(selector)
                     if main_content:
                         text = main_content.get_text(separator='\n', strip=True)
-                    else:
-                        # se-main-container가 없는 구버전 블로그 등을 위해 body 전체 텍스트를 가져옵니다.
-                        text = soup.body.get_text(separator='\n', strip=True)
-                    
-                    browser.close()
-                    return "네이버 블로그", text
-                else:
-                    logger.warning("네이버 블로그에서 mainFrame을 찾을 수 없습니다. 일반 방식으로 재시도합니다.")
-                    # iframe을 찾지 못하면 일반 방식으로 시도합니다.
-                    return extract_text_with_requests(url)
+                        if len(text.strip()) > 50:  # 최소한의 텍스트가 추출되었는지 확인
+                            logger.info(f"선택자 '{selector}'를 사용하여 텍스트를 성공적으로 추출했습니다.")
+                            break
+                        else:
+                            text = "" # 텍스트가 너무 적으면 다음 선택자를 시도
+
+                if not text:
+                    raise ValueError("페이지에서 유효한 본문 텍스트를 추출할 수 없습니다.")
+                
+                browser.close()
+                return "네이버 블로그", text
 
         except Exception as e:
             logger.error(f"Playwright로 네이버 블로그 처리 중 오류 발생: {e}")
@@ -72,4 +84,3 @@ def extract_text_with_requests(url: str):
     except requests.RequestException as e:
         logger.error(f"requests로 URL 처리 중 오류 발생: {e}")
         return "에러", f"URL 콘텐츠를 가져오는 데 실패했습니다: {e}"
-
