@@ -2,6 +2,7 @@ import requests
 from bs4 import BeautifulSoup
 from playwright.sync_api import sync_playwright
 import logging
+from app.structure_detector import extract_main_content_from_html # 새로운 함수 임포트
 
 # 로깅 설정
 logging.basicConfig(level=logging.INFO)
@@ -21,38 +22,37 @@ def extract_text_from_url(url: str):
                 page = browser.new_page()
                 page.goto(url, timeout=20000, wait_until='domcontentloaded')
 
+                content_html = page.content()
+                browser.close()
+                
                 # 여러 후보 선택자를 시도하여 가장 적합한 본문 영역을 찾음
+                text = ""
+                soup = BeautifulSoup(content_html, 'html.parser')
+
                 content_selectors = [
                     "div.se-main-container",  # 최신 스마트에디터 원
                     "div.post_content",        # 구버전 스마트에디터
                     "div.blog_content",        # 또 다른 구버전
                     "div.article",             # 일반적인 블로그 아티클
-                    "body"                     # 최종 폴백: body 전체
                 ]
-                
-                content_html = page.content()
-                soup = BeautifulSoup(content_html, 'html.parser')
-                text = ""
 
                 for selector in content_selectors:
-                    if selector == "body":
-                        # body 태그는 마지막 시도
-                        text = soup.body.get_text(separator='\n', strip=True)
-                        break
-
                     main_content = soup.select_one(selector)
                     if main_content:
-                        text = main_content.get_text(separator='\n', strip=True)
-                        if len(text.strip()) > 50:  # 최소한의 텍스트가 추출되었는지 확인
+                        extracted_text = main_content.get_text(separator='\n', strip=True)
+                        if len(extracted_text.strip()) > 50:
                             logger.info(f"선택자 '{selector}'를 사용하여 텍스트를 성공적으로 추출했습니다.")
+                            text = extracted_text
                             break
-                        else:
-                            text = "" # 텍스트가 너무 적으면 다음 선택자를 시도
+
+                # 모든 후보 선택자가 실패했을 때, unstructured 라이브러리를 최종 폴백으로 사용
+                if not text:
+                    logger.warning("일반 선택자로 본문 추출 실패. unstructured 라이브러리로 재시도합니다.")
+                    text = extract_main_content_from_html(content_html)
 
                 if not text:
                     raise ValueError("페이지에서 유효한 본문 텍스트를 추출할 수 없습니다.")
                 
-                browser.close()
                 return "네이버 블로그", text
 
         except Exception as e:
